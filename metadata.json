@@ -1,0 +1,6 @@
+{
+  "name": "Try Again",
+  "description": "Duolingo-inspired glassmorphism student focus timer with bouncing monkey mascot, gem rewards shop, unlockable ambient sounds & themes, Apple-level tactile feedback, and Gemini AI study coach.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

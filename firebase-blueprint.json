@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Student focus profile, streaks, daily goal, gem wallet, unlocked ambient sounds, cosmetic upgrades, and claimed path milestones.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID" },
+        "displayName": { "type": "string", "description": "Student display name" },
+        "dailyGoalMinutes": { "type": "integer", "description": "Daily focus goal in minutes (15..720)" },
+        "currentStreak": { "type": "integer", "description": "Current consecutive focus days streak" },
+        "longestStreak": { "type": "integer", "description": "Longest consecutive focus days streak" },
+        "totalFocusMinutes": { "type": "integer", "description": "Total accumulated study minutes" },
+        "focusXp": { "type": "integer", "description": "Accumulated student focus XP" },
+        "gems": { "type": "integer", "description": "Current spendable Gem balance earned from focus sessions and tasks" },
+        "totalGemsEarned": { "type": "integer", "description": "Lifetime gems earned" },
+        "lastFocusDate": { "type": "string", "description": "ISO date YYYY-MM-DD of last completed focus session" },
+        "subjects": { "type": "array", "description": "Student study subjects list (max 20)" },
+        "unlockedSounds": { "type": "array", "description": "Ambient sound preset IDs unlocked with gems" },
+        "unlockedCosmetics": { "type": "array", "description": "Cosmetic theme and mascot badge IDs unlocked with gems" },
+        "claimedMilestones": { "type": "array", "description": "Focus Path milestone IDs whose gem chests have been claimed" },
+        "equippedTheme": { "type": "string", "description": "Currently equipped glassmorphism theme ID" },
+        "equippedBadge": { "type": "string", "description": "Currently equipped mascot badge/ring style ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "dailyGoalMinutes",
+        "currentStreak",
+        "longestStreak",
+        "totalFocusMinutes",
+        "focusXp",
+        "gems",
+        "totalGemsEarned",
+        "lastFocusDate",
+        "subjects",
+        "unlockedSounds",
+        "unlockedCosmetics",
+        "claimedMilestones",
+        "equippedTheme",
+        "equippedBadge",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FocusSession": {
+      "title": "FocusSession",
+      "description": "Completed focus session with duration, subject, ambient sound, XP, and gems earned.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "subject": { "type": "string", "description": "Study subject tag" },
+        "plannedMinutes": { "type": "integer", "description": "Planned duration in minutes" },
+        "completedMinutes": { "type": "integer", "description": "Actual completed duration in minutes" },
+        "ambientSound": { "type": "string", "description": "Ambient sound preset used during session" },
+        "xpEarned": { "type": "integer", "description": "Focus XP earned" },
+        "gemsEarned": { "type": "integer", "description": "Gems earned from this session" },
+        "dateKey": { "type": "string", "description": "Local YYYY-MM-DD date string for grouping" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId",
+        "subject",
+        "plannedMinutes",
+        "completedMinutes",
+        "ambientSound",
+        "xpEarned",
+        "gemsEarned",
+        "dateKey",
+        "createdAt"
+      ]
+    },
+    "PomodoroTask": {
+      "title": "PomodoroTask",
+      "description": "Student study task linked to focus sessions with completion state and sprint counter.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "title": { "type": "string", "description": "Task title" },
+        "subject": { "type": "string", "description": "Subject tag" },
+        "estimatedPomodoros": { "type": "integer", "description": "Estimated sprints (1..12)" },
+        "completedPomodoros": { "type": "integer", "description": "Completed sprints (0..99)" },
+        "completed": { "type": "boolean", "description": "Whether task is completed" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId",
+        "title",
+        "subject",
+        "estimatedPomodoros",
+        "completedPomodoros",
+        "completed",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Student focus profile, gem wallet, unlocked sounds/cosmetics, and streaks"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/FocusSession" },
+      "description": "Completed focus sessions with gem and XP rewards"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/PomodoroTask" },
+      "description": "Study tasks associated with Pomodoro sessions"
+    }
+  }
+}

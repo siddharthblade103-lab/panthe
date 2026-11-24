@@ -1,0 +1,181 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidStringList(listVal, maxLen) {
+      return listVal is list &&
+             listVal.size() <= maxLen &&
+             (listVal.size() == 0 || listVal[0] is string);
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.dailyGoalMinutes is int && data.dailyGoalMinutes >= 15 && data.dailyGoalMinutes <= 720 &&
+             data.currentStreak is int && data.currentStreak >= 0 && data.currentStreak <= 10000 &&
+             data.longestStreak is int && data.longestStreak >= 0 && data.longestStreak <= 10000 &&
+             data.totalFocusMinutes is int && data.totalFocusMinutes >= 0 && data.totalFocusMinutes <= 1000000 &&
+             data.focusXp is int && data.focusXp >= 0 && data.focusXp <= 10000000 &&
+             data.gems is int && data.gems >= 0 && data.gems <= 1000000 &&
+             data.totalGemsEarned is int && data.totalGemsEarned >= 0 && data.totalGemsEarned <= 1000000 &&
+             data.lastFocusDate is string && data.lastFocusDate.size() <= 20 &&
+             isValidStringList(data.subjects, 20) &&
+             isValidStringList(data.unlockedSounds, 20) &&
+             isValidStringList(data.unlockedCosmetics, 30) &&
+             isValidStringList(data.claimedMilestones, 30) &&
+             data.equippedTheme is string && data.equippedTheme.size() >= 1 && data.equippedTheme.size() <= 40 &&
+             data.equippedBadge is string && data.equippedBadge.size() >= 1 && data.equippedBadge.size() <= 40 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidFocusSession(data, userId) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 40 &&
+             data.plannedMinutes is int && data.plannedMinutes >= 1 && data.plannedMinutes <= 360 &&
+             data.completedMinutes is int && data.completedMinutes >= 1 && data.completedMinutes <= 360 &&
+             data.ambientSound is string && data.ambientSound.size() <= 40 &&
+             data.xpEarned is int && data.xpEarned >= 0 && data.xpEarned <= 5000 &&
+             data.gemsEarned is int && data.gemsEarned >= 0 && data.gemsEarned <= 2000 &&
+             data.dateKey is string && data.dateKey.size() >= 1 && data.dateKey.size() <= 20 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidPomodoroTask(data, userId) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 40 &&
+             data.estimatedPomodoros is int && data.estimatedPomodoros >= 1 && data.estimatedPomodoros <= 12 &&
+             data.completedPomodoros is int && data.completedPomodoros >= 0 && data.completedPomodoros <= 99 &&
+             data.completed is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'dailyGoalMinutes',
+                         'currentStreak', 'longestStreak', 'totalFocusMinutes',
+                         'focusXp', 'gems', 'totalGemsEarned', 'lastFocusDate',
+                         'subjects', 'unlockedSounds', 'unlockedCosmetics',
+                         'claimedMilestones', 'equippedTheme', 'equippedBadge',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'dailyGoalMinutes',
+                         'currentStreak', 'longestStreak', 'totalFocusMinutes',
+                         'focusXp', 'gems', 'totalGemsEarned', 'lastFocusDate',
+                         'subjects', 'unlockedSounds', 'unlockedCosmetics',
+                         'claimedMilestones', 'equippedTheme', 'equippedBadge',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'dailyGoalMinutes', 'currentStreak',
+                         'longestStreak', 'totalFocusMinutes', 'focusXp',
+                         'gems', 'totalGemsEarned', 'lastFocusDate', 'subjects',
+                         'unlockedSounds', 'unlockedCosmetics', 'claimedMilestones',
+                         'equippedTheme', 'equippedBadge', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /sessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(sessionId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'subject', 'plannedMinutes',
+                           'completedMinutes', 'ambientSound', 'xpEarned',
+                           'gemsEarned', 'dateKey', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'subject', 'plannedMinutes',
+                           'completedMinutes', 'ambientSound', 'xpEarned',
+                           'gemsEarned', 'dateKey', 'createdAt'
+                         ]) &&
+                         isValidFocusSession(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      match /tasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'subject', 'estimatedPomodoros',
+                           'completedPomodoros', 'completed', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'subject', 'estimatedPomodoros',
+                           'completedPomodoros', 'completed', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidPomodoroTask(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         isValidPomodoroTask(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'subject', 'estimatedPomodoros',
+                           'completedPomodoros', 'completed', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+    }
+  }
+}

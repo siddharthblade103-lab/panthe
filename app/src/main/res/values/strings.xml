@@ -1,0 +1,54 @@
+<resources>
+    <string name="app_name">Try Again</string>
+    <string name="app_tagline">Focus. Earn Gems. Try Again.</string>
+
+    <!-- Navigation -->
+    <string name="nav_focus">Focus</string>
+    <string name="nav_journey">Path</string>
+    <string name="nav_shop">Shop</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Focus Timer -->
+    <string name="focus_start">START FOCUS</string>
+    <string name="focus_pause">PAUSE</string>
+    <string name="focus_resume">RESUME</string>
+    <string name="focus_complete">COMPLETE</string>
+    <string name="focus_reset">Reset</string>
+    <string name="focus_start_break">START BREAK</string>
+    <string name="focus_skip_break">SKIP BREAK</string>
+    <string name="focus_tasks_title">Study Tasks</string>
+    <string name="focus_add_task">Add a study task…</string>
+    <string name="focus_ambient_title">Ambient Sound</string>
+    <string name="focus_ai_coach_title">Gemini Study Coach</string>
+    <string name="focus_ai_tip_cta">Study Tip</string>
+    <string name="focus_ai_motivate_cta">Motivate Me</string>
+    <string name="focus_ai_ask_hint">Ask for a quick tip on your topic…</string>
+
+    <!-- Focus Streaks -->
+    <string name="focus_streaks_title">Focus Streaks</string>
+    <string name="focus_streaks_protected">Today\'s flame is lit — keep your flow alive!</string>
+    <string name="focus_streaks_prompt">Finish 1 sprint today to extend your streak</string>
+    <string name="focus_streaks_start_prompt">Complete a focus sprint to start Day 1</string>
+    <string name="focus_streaks_best_label">Best %1$dd</string>
+    <string name="focus_streaks_two_week_title">14-Day Habit Consistency</string>
+
+    <!-- Ambient Service Notifications -->
+    <string name="ambient_notification_channel">Try Again Ambient Sounds</string>
+    <string name="ambient_notification_channel_desc">Playback controls for background ambient focus sounds</string>
+    <string name="ambient_action_play">Play</string>
+    <string name="ambient_action_pause">Pause</string>
+    <string name="ambient_action_stop">Stop</string>
+
+    <!-- Journey Path -->
+    <string name="journey_title">Focus Path</string>
+    <string name="journey_subtitle">Climb milestones and collect gem chests</string>
+
+    <!-- Gems Shop -->
+    <string name="shop_title">Gem Vault &amp; Shop</string>
+    <string name="shop_subtitle">Unlock ambient soundscapes &amp; glass cosmetics</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_sign_in_google">Sign in with Google</string>
+    <string name="profile_sign_out">Sign Out</string>
+</resources>
