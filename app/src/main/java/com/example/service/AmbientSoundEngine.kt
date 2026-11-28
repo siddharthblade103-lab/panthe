@@ -24,7 +24,7 @@ private const val SAMPLE_RATE = 22050
 
 /**
  * Procedural stereo ambient sound synthesizer for Try Again:
- * Rain, White Noise, Forest Breeze, Ocean Tide, Deep Brown Noise, Alpha 10Hz, and Cozy Fireplace.
+ * Rainfall, Cafe Noise, White Noise, Forest Breeze, Ocean Tide, Deep Brown Noise, Alpha 10Hz, and Cozy Fireplace.
  */
 class AmbientSoundEngine {
 
@@ -190,6 +190,45 @@ class AmbientSoundEngine {
                                 } else 0.0
                                 (brownL * 1.9 + whiteL * 0.14 + drop).coerceIn(-0.95, 0.95) to
                                     (brownR * 1.9 + whiteR * 0.14 - drop * 0.7).coerceIn(-0.95, 0.95)
+                            }
+
+                            AmbientSoundPreset.CAFE_NOISE -> {
+                                // Cozy coffeehouse ambiance: warm low-mid room murmur + gentle conversation swells + rare ceramic clinks
+                                lfoPhase += (2.0 * PI * 0.21) / SAMPLE_RATE
+                                phaseL += (2.0 * PI * 0.37) / SAMPLE_RATE
+                                phaseR += (2.0 * PI * 0.29) / SAMPLE_RATE
+                                val whiteL = Random.nextDouble(-1.0, 1.0)
+                                val whiteR = Random.nextDouble(-1.0, 1.0)
+                                brownL = (brownL + 0.055 * whiteL) / 1.055
+                                brownR = (brownR + 0.055 * whiteR) / 1.055
+                                smoothL = smoothL * 0.84 + whiteL * 0.16
+                                smoothR = smoothR * 0.84 + whiteR * 0.16
+                                val murmurL = 0.55 + 0.45 * (0.5 + 0.5 * sin(phaseL)) * (0.6 + 0.4 * sin(lfoPhase * 1.7))
+                                val murmurR = 0.55 + 0.45 * (0.5 + 0.5 * sin(phaseR)) * (0.6 + 0.4 * sin(lfoPhase * 1.3 + 1.1))
+                                val roomBedL = brownL * 2.15 + smoothL * 0.24 * murmurL
+                                val roomBedR = brownR * 2.15 + smoothR * 0.24 * murmurR
+
+                                // Subtle damped ceramic cup / spoon clink every ~4-6 seconds
+                                if (birdTimer <= 0 && Random.nextInt(SAMPLE_RATE * 5) == 0) {
+                                    birdLength = Random.nextInt(1400, 2600)
+                                    birdTimer = birdLength
+                                    birdBaseFreq = Random.nextDouble(2250.0, 3450.0)
+                                    birdPhase = 0.0
+                                    birdPan = Random.nextDouble(0.22, 0.78)
+                                }
+                                var clinkL = 0.0
+                                var clinkR = 0.0
+                                if (birdTimer > 0) {
+                                    val decay = (birdTimer.toDouble() / birdLength.toDouble())
+                                    val env = decay * decay * decay
+                                    birdPhase += (2.0 * PI * birdBaseFreq) / SAMPLE_RATE
+                                    val ping = (sin(birdPhase) * 0.65 + sin(birdPhase * 2.31) * 0.35) * env * 0.11
+                                    clinkL = ping * (1.0 - birdPan)
+                                    clinkR = ping * birdPan
+                                    birdTimer--
+                                }
+                                (roomBedL + clinkL).coerceIn(-0.92, 0.92) to
+                                    (roomBedR + clinkR).coerceIn(-0.92, 0.92)
                             }
 
                             AmbientSoundPreset.FOREST_WIND -> {

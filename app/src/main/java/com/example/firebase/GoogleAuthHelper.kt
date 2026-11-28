@@ -128,3 +128,140 @@ fun signOutGoogle(
         }
     }
 }
+
+fun signInOrRegisterWithEmail(
+    email: String,
+    password: String,
+    createAccount: Boolean,
+    onAuthSuccess: () -> Unit,
+    onAuthError: (String) -> Unit,
+    scope: CoroutineScope
+) {
+    val cleanEmail = email.trim()
+    if (cleanEmail.isBlank() || !cleanEmail.contains("@")) {
+        onAuthError("Please enter a valid email address (Gmail, Zoho Mail, or work email).")
+        return
+    }
+    if (password.length < 6) {
+        onAuthError("Password must be at least 6 characters.")
+        return
+    }
+    scope.launch {
+        try {
+            if (createAccount) {
+                Firebase.auth.createUserWithEmailAndPassword(cleanEmail, password).await()
+            } else {
+                Firebase.auth.signInWithEmailAndPassword(cleanEmail, password).await()
+            }
+            onAuthSuccess()
+        } catch (e: Exception) {
+            Log.e(AUTH_TAG, "Email/Zoho auth failed", e)
+            onAuthError(e.localizedMessage ?: "Email sign-in failed. Ensure Email/Password auth is enabled or use Google Sign-In.")
+        }
+    }
+}
+
+fun startPhoneOtpVerification(
+    context: Context,
+    rawPhoneNumber: String,
+    onCodeSent: (verificationId: String) -> Unit,
+    onAutoVerified: () -> Unit,
+    onAuthError: (String) -> Unit
+) {
+    val activity = context as? Activity
+    if (activity == null) {
+        onAuthError("Unable to start Phone OTP from this screen.")
+        return
+    }
+    val cleaned = rawPhoneNumber.trim().replace(" ", "")
+    if (!cleaned.startsWith("+") || cleaned.length < 10) {
+        onAuthError("Enter phone with country code (e.g., +919876543210).")
+        return
+    }
+    try {
+        val options = com.google.firebase.auth.PhoneAuthOptions.newBuilder(Firebase.auth)
+            .setPhoneNumber(cleaned)
+            .setTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(object : com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                override fun onVerificationCompleted(credential: com.google.firebase.auth.PhoneAuthCredential) {
+                    Firebase.auth.signInWithCredential(credential)
+                        .addOnSuccessListener { onAutoVerified() }
+                        .addOnFailureListener { err ->
+                            onAuthError(err.localizedMessage ?: "Phone verification failed.")
+                        }
+                }
+
+                override fun onVerificationFailed(e: com.google.firebase.FirebaseException) {
+                    Log.e(AUTH_TAG, "Phone OTP verification failed", e)
+                    onAuthError(e.localizedMessage ?: "Phone OTP failed. Ensure Phone Auth is enabled in Firebase Console.")
+                }
+
+                override fun onCodeSent(
+                    verificationId: String,
+                    token: com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken
+                ) {
+                    onCodeSent(verificationId)
+                }
+            })
+            .build()
+        com.google.firebase.auth.PhoneAuthProvider.verifyPhoneNumber(options)
+    } catch (e: Exception) {
+        Log.e(AUTH_TAG, "Phone OTP launch error", e)
+        onAuthError(e.localizedMessage ?: "Could not start Phone OTP verification.")
+    }
+}
+
+fun verifyPhoneOtpCode(
+    verificationId: String,
+    smsCode: String,
+    onAuthSuccess: () -> Unit,
+    onAuthError: (String) -> Unit,
+    scope: CoroutineScope
+) {
+    val cleanCode = smsCode.trim()
+    if (cleanCode.length < 4) {
+        onAuthError("Enter the 6-digit OTP sent to your phone.")
+        return
+    }
+    scope.launch {
+        try {
+            val credential = com.google.firebase.auth.PhoneAuthProvider.getCredential(verificationId, cleanCode)
+            Firebase.auth.signInWithCredential(credential).await()
+            onAuthSuccess()
+        } catch (e: Exception) {
+            Log.e(AUTH_TAG, "OTP code verification failed", e)
+            onAuthError(e.localizedMessage ?: "Invalid or expired OTP code.")
+        }
+    }
+}
+
+fun signInWithGitHub(
+    context: Context,
+    onAuthSuccess: () -> Unit,
+    onAuthError: (String) -> Unit
+) {
+    val activity = context as? Activity
+    if (activity == null) {
+        onAuthError("Unable to open GitHub Sign-In from current screen.")
+        return
+    }
+    val provider = com.google.firebase.auth.OAuthProvider.newBuilder("github.com")
+    val pending = Firebase.auth.pendingAuthResult
+    if (pending != null) {
+        pending
+            .addOnSuccessListener { onAuthSuccess() }
+            .addOnFailureListener { e ->
+                Log.e(AUTH_TAG, "GitHub pending auth failed", e)
+                onAuthError(e.localizedMessage ?: "GitHub sign-in failed.")
+            }
+    } else {
+        Firebase.auth.startActivityForSignInWithProvider(activity, provider.build())
+            .addOnSuccessListener { onAuthSuccess() }
+            .addOnFailureListener { e ->
+                Log.e(AUTH_TAG, "GitHub sign-in failed", e)
+                onAuthError(e.localizedMessage ?: "GitHub sign-in failed. Enable GitHub provider in Firebase Auth or use Google Sign-In.")
+            }
+    }
+}
+

@@ -5,7 +5,8 @@
     <!-- Navigation -->
     <string name="nav_focus">Focus</string>
     <string name="nav_journey">Path</string>
-    <string name="nav_shop">Shop</string>
+    <string name="nav_social">Social</string>
+    <string name="nav_shop">Rewards</string>
     <string name="nav_profile">Profile</string>
 
     <!-- Focus Timer -->
@@ -16,13 +17,78 @@
     <string name="focus_reset">Reset</string>
     <string name="focus_start_break">START BREAK</string>
     <string name="focus_skip_break">SKIP BREAK</string>
+    <string name="focus_paused_badge">PAUSED • STREAK SAFE</string>
+    <string name="focus_paused_status_line">Session paused &amp; saved — your streak stays protected</string>
+    <string name="focus_running_status_line">Running safely in background — progress auto-saved</string>
+    <string name="focus_reset_dialog_title">Protect Your Focus Streak?</string>
+    <string name="focus_reset_dialog_body">You\'ve already logged %1$d min on %2$s. Save your progress now to keep your streak safe, resume your sprint, or discard this session.</string>
+    <string name="focus_reset_save_and_keep">SAVE &amp; KEEP STREAK</string>
+    <string name="focus_reset_resume">RESUME SPRINT</string>
+    <string name="focus_reset_discard">Discard Sprint</string>
     <string name="focus_tasks_title">Study Tasks</string>
     <string name="focus_add_task">Add a study task…</string>
     <string name="focus_ambient_title">Ambient Sound</string>
-    <string name="focus_ai_coach_title">Gemini Study Coach</string>
-    <string name="focus_ai_tip_cta">Study Tip</string>
-    <string name="focus_ai_motivate_cta">Motivate Me</string>
-    <string name="focus_ai_ask_hint">Ask for a quick tip on your topic…</string>
+    <string name="ambient_drawer_title">Ambient Soundscapes</string>
+    <string name="ambient_drawer_subtitle">Toggle background sounds during your focus sessions</string>
+    <string name="ambient_drawer_open_cta">Soundscapes</string>
+    <string name="ambient_drawer_all_sounds">All Sounds</string>
+    <string name="ambient_drawer_mute_cta">Mute</string>
+    <string name="ambient_drawer_playing_status">Now Playing</string>
+    <string name="ambient_drawer_paused_status">Paused</string>
+    <string name="ambient_drawer_silent_status">Silent Mode</string>
+    <string name="ambient_drawer_volume_label">Sound Volume</string>
+    <string name="ambient_drawer_autoplay_title">Auto-Play With Focus Timer</string>
+    <string name="ambient_drawer_autoplay_desc">Start &amp; pause background audio automatically with each sprint</string>
+    <string name="ambient_drawer_essentials_section">Focus Essentials</string>
+    <string name="ambient_drawer_atmospheres_section">Atmospheres &amp; Deep Focus</string>
+    <string name="ambient_drawer_close_desc">Close ambient sound drawer</string>
+    <string name="ambient_drawer_unlock_cta">Unlock</string>
+    <string name="ambient_drawer_shop_cta">Get Gems</string>
+    <string name="ambient_screen_title">Ambient Sounds</string>
+    <string name="ambient_screen_subtitle">Local audio player · Toggle anytime during focus</string>
+    <string name="ambient_screen_back_desc">Back from Ambient Sounds</string>
+    <string name="ambient_screen_local_playing">NOW PLAYING · LOCAL AUDIO</string>
+    <string name="ambient_screen_instant_toggle_hint">Tap to play or pause</string>
+
+    <!-- Focus Workspace Switcher & Atmosphere Studio -->
+    <string name="workspace_tab_focus">Focus</string>
+    <string name="workspace_tab_insights">Insights</string>
+    <string name="atmosphere_drawer_title">Atmosphere &amp; Haptics</string>
+    <string name="atmosphere_drawer_subtitle">Customize ambient gradient lighting, edge glow &amp; vibration</string>
+    <string name="atmosphere_lighting_title">Ambient Gradient Lighting</string>
+    <string name="atmosphere_glow_intensity">Lighting Glow Intensity</string>
+    <string name="atmosphere_edge_glow_title">Galaxy Edge Lighting</string>
+    <string name="atmosphere_edge_glow_desc">Animated prismatic aura around screen edges during focus</string>
+    <string name="atmosphere_haptics_title">Vibration &amp; Tactile Feedback</string>
+    <string name="atmosphere_ui_sounds_title">Liquid-Glass Click Sounds</string>
+    <string name="atmosphere_ui_sounds_desc">Soft acoustic ticks on taps, switches &amp; timer actions</string>
+    <string name="atmosphere_chime_title">Session Complete Chime</string>
+
+
+    <!-- Screen & App Usage -->
+    <string name="usage_title">Screen &amp; App Usage</string>
+    <string name="usage_subtitle_active">Live device &amp; study balance today</string>
+    <string name="usage_subtitle_local">Tracking in-app time — enable Usage Access for all apps</string>
+    <string name="usage_total_screen">Screen Time</string>
+    <string name="usage_this_app">Try Again Time</string>
+    <string name="usage_top_apps_title">Most Used Apps Today</string>
+    <string name="usage_enable_cta">ENABLE USAGE ACCESS</string>
+    <string name="usage_permission_hint">Grant Android Usage Access to see total device screen time and which apps use your study hours.</string>
+    <string name="usage_refresh">Refresh usage stats</string>
+    <string name="usage_chart_title">Daily Usage: Focus vs. Distraction</string>
+    <string name="usage_chart_subtitle">7-day breakdown of productive study vs. other screen time</string>
+    <string name="usage_legend_focus">Focus</string>
+    <string name="usage_legend_distraction">Distraction</string>
+
+    <!-- Study Goals -->
+    <string name="study_goal_title">Study Goal</string>
+    <string name="study_goal_daily_tab">Daily Goal</string>
+    <string name="study_goal_weekly_tab">Weekly Goal</string>
+    <string name="study_goal_edit_cta">Set Goal</string>
+    <string name="study_goal_dialog_title">Set Study Goals</string>
+    <string name="study_goal_dialog_subtitle">Choose your daily and weekly study targets. Your progress bar fills automatically after every focus session.</string>
+    <string name="study_goal_save_cta">SAVE STUDY GOALS</string>
+    <string name="study_goal_reached_badge">Goal Reached!</string>
 
     <!-- Focus Streaks -->
     <string name="focus_streaks_title">Focus Streaks</string>
@@ -32,23 +98,204 @@
     <string name="focus_streaks_best_label">Best %1$dd</string>
     <string name="focus_streaks_two_week_title">14-Day Habit Consistency</string>
 
-    <!-- Ambient Service Notifications -->
+    <!-- Social Study Circle -->
+    <string name="social_title">Study Circle</string>
+    <string name="social_subtitle">Real-time study stats with your added friends</string>
+    <string name="social_live_sync">Live Sync</string>
+    <string name="social_syncing_now">Syncing…</string>
+    <string name="social_your_card_label">Your Shareable Study Handle</string>
+    <string name="social_copy_handle">Copy</string>
+    <string name="social_share_handle">Share</string>
+    <string name="social_add_friend_placeholder">Friend\'s @handle…</string>
+    <string name="social_add_friend_cta">ADD</string>
+    <string name="social_sign_in_title">Sync With Study Friends &amp; Leaderboard</string>
+    <string name="social_sign_in_desc">Sign in with Google to climb the Global Study Streaks Leaderboard, get your @handle, and track added friends\' live study sessions.</string>
+    <string name="social_empty_title">Your Study Circle is Ready</string>
+    <string name="social_empty_desc">Add a friend by their @handle above or share yours to watch each other\'s focus streaks and live study sessions update in real time.</string>
+    <string name="social_remove_friend">Remove friend</string>
+    <string name="social_tab_circle">Circle</string>
+    <string name="social_tab_challenges">Challenges</string>
+    <string name="social_tab_leaderboard">Ranks</string>
+    <string name="challenges_title">Study Challenges</string>
+    <string name="challenges_subtitle">Shared group focus goals synced live with friends</string>
+    <string name="challenges_create_cta">Create Challenge</string>
+    <string name="challenges_join_code_cta">Join by Code</string>
+    <string name="challenges_pending_invites_title">Pending Invites</string>
+    <string name="challenges_active_title">Active Group Challenges</string>
+    <string name="challenges_empty_title">Start a Group Study Challenge</string>
+    <string name="challenges_empty_desc">Create a shared focus goal and invite friends by handle or 6-character code. Everyone\'s completed focus sessions combine into one live progress bar!</string>
+    <string name="challenges_accept_join">ACCEPT &amp; JOIN</string>
+    <string name="challenges_decline_invite">Decline</string>
+    <string name="challenges_invite_friends">Invite Friends</string>
+    <string name="challenges_share_code">Share Code</string>
+    <string name="social_safety_pill">Safe</string>
+    <string name="social_safety_private_pill">Private</string>
+    <string name="social_safety_shield_title">Social Safety &amp; Privacy</string>
+    <string name="social_safety_shield_subtitle">Your screen time stays 100% private on this device</string>
+    <string name="social_private_mode_title">Private Study Mode</string>
+    <string name="social_private_mode_desc">Pause live focus status and hide your active study subject from friends</string>
+    <string name="social_blocked_title">Blocked Scholars</string>
+    <string name="social_blocked_empty">No blocked scholars. Blocked accounts are hidden from your Circle, invites, and rankings.</string>
+    <string name="social_unblock_cta">Unblock</string>
+    <string name="social_friend_actions_title">Manage Friend</string>
+    <string name="social_block_friend_cta">Block Scholar</string>
+    <string name="social_block_friend_desc">Removes from your Study Circle and hides their challenge invites and leaderboard profile.</string>
+    <string name="social_friend_options_desc">Friend options and safety actions</string>
+    <string name="social_safety_button_desc">Open Social Safety and Privacy Shield</string>
+    <string name="leaderboard_title">Global Study Streaks</string>
+    <string name="leaderboard_subtitle">Top scholars competing live from Firestore</string>
+    <string name="leaderboard_your_rank">Your Global Rank</string>
+    <string name="leaderboard_podium_title">Top Streak Champions</string>
+    <string name="leaderboard_all_scholars_title">Global Rankings</string>
+    <string name="leaderboard_loading">Loading global study streaks…</string>
+    <string name="leaderboard_empty_title">Claim the #1 Crown!</string>
+    <string name="leaderboard_empty_desc">Complete a focus session to publish your streak to the live global leaderboard.</string>
+    <string name="leaderboard_retry">RETRY</string>
+    <string name="leaderboard_refresh">Refresh leaderboard</string>
+    <string name="leaderboard_add_friend">Add to Study Circle</string>
+
+    <!-- Ambient & Timer Service Notifications -->
     <string name="ambient_notification_channel">Try Again Ambient Sounds</string>
     <string name="ambient_notification_channel_desc">Playback controls for background ambient focus sounds</string>
     <string name="ambient_action_play">Play</string>
     <string name="ambient_action_pause">Pause</string>
     <string name="ambient_action_stop">Stop</string>
+    <string name="timer_notification_channel">Background Focus Timer</string>
+    <string name="timer_notification_channel_desc">Live Pomodoro countdown when app runs in the background</string>
+    <string name="timer_complete_channel">Session Complete Alerts</string>
+    <string name="timer_complete_channel_desc">Completion celebrations and weekend study PDF reports</string>
+    <string name="streak_reminder_channel_name">Daily Streak Push Alerts</string>
+    <string name="streak_reminder_channel_desc">Firebase Cloud Messaging daily reminders to protect your study streak</string>
+    <string name="streak_reminder_notification_action">Start Focus</string>
+    <string name="streak_reminder_title">Daily Streak Push Alert</string>
+    <string name="streak_reminder_subtitle_safe">You already started studying today! Next FCM check tomorrow at %1$s</string>
+    <string name="streak_reminder_subtitle_armed">Alerts you at %1$s if you haven\'t started a sprint to protect your %2$d-day streak</string>
+    <string name="streak_reminder_status_safe">Streak Safe Today</string>
+    <string name="streak_reminder_status_armed">Armed • %1$s</string>
+    <string name="streak_reminder_status_paused">Reminders Paused</string>
+    <string name="streak_reminder_fcm_syncing">Syncing FCM…</string>
+    <string name="streak_reminder_fcm_cloud_synced">FCM Cloud Synced</string>
+    <string name="streak_reminder_fcm_ready">FCM Push Active</string>
+    <string name="streak_reminder_fcm_device_ready">FCM &amp; Schedule Ready</string>
+    <string name="streak_reminder_permission_needed">Allow notifications so Try Again can send daily streak push alerts.</string>
+    <string name="streak_reminder_allow_cta">ALLOW</string>
+    <string name="streak_reminder_time_label">Daily Alert Time</string>
+    <string name="streak_reminder_change_time">Change</string>
+    <string name="streak_reminder_fcm_topic_label">FCM Push Topic</string>
+    <string name="streak_reminder_test_cta">TEST ALERT</string>
+    <string name="streak_reminder_picker_title">Daily Streak Alert Time</string>
+    <string name="streak_reminder_picker_subtitle">Pick when Firebase Cloud Messaging should nudge you if you haven\'t started studying yet.</string>
+    <string name="streak_reminder_save_time">SAVE TIME</string>
+
+    <!-- Gemini Insights -->
+    <string name="gemini_insights_title">Study Insights</string>
+    <string name="gemini_insights_subtitle">Personalized productivity tips from your focus sessions</string>
+    <string name="gemini_insights_cta">GENERATE INSIGHTS</string>
+    <string name="gemini_insights_refresh">REFRESH INSIGHTS</string>
+    <string name="gemini_insights_loading">Analyzing your study rhythm…</string>
+
+    <!-- Focus Session Summary Dialog -->
+    <string name="session_summary_badge">FOCUS COMPLETE</string>
+    <string name="session_summary_title">Great Sprint!</string>
+    <string name="session_summary_time_label">Time Spent</string>
+    <string name="session_summary_points_label">Play Points</string>
+    <string name="session_summary_coach_title">Gemini AI Coach</string>
+    <string name="session_summary_coach_loading">Reviewing your focus session…</string>
+    <string name="session_summary_next_move">NEXT MOVE</string>
+    <string name="session_summary_retry">Retry</string>
+    <string name="session_summary_done">DONE</string>
+
+    <!-- Study History & Weekly PDF -->
+    <string name="weekly_summary_title">Weekly Summary</string>
+    <string name="weekly_summary_subtitle">Focus time &amp; Play Points over the past 7 days</string>
+    <string name="weekly_summary_total_focus">Focus Time</string>
+    <string name="weekly_summary_points_earned">Points</string>
+    <string name="weekly_summary_sprints">Sprints</string>
+    <string name="weekly_summary_legend_focus">Focus Time (min)</string>
+    <string name="weekly_summary_legend_points">Play Points</string>
+    <string name="report_pdf_title">Weekly Study PDF Report</string>
+    <string name="report_pdf_unified_title">Weekly Study PDF</string>
+    <string name="report_pdf_subtitle">Export your 7-day study stats, subjects &amp; session history as a PDF</string>
+    <string name="report_pdf_export_cta">EXPORT &amp; SHARE PDF</string>
+    <string name="report_pdf_weekend_toggle">Weekend Auto-Report</string>
+    <string name="report_pdf_weekend_desc">Prepare &amp; notify your weekly PDF every Sunday evening</string>
+    <string name="study_history_title">Recent Study History</string>
+    <string name="study_history_empty">Complete a focus session to start building your study log and PDF report.</string>
+    <string name="study_history_hide_cta">Hide</string>
+    <string name="study_history_show_cta">Show</string>
+    <string name="study_history_hidden_hint">Hidden • %1$d logged</string>
+
+    <!-- Social Handle Editing & Direct Messaging -->
+    <string name="social_edit_handle_cta">Edit</string>
+    <string name="social_edit_handle_title">Edit Your @Handle</string>
+    <string name="social_edit_handle_subtitle">Pick a unique study handle friends can find you with</string>
+    <string name="social_save_handle_cta">SAVE HANDLE</string>
+    <string name="social_message_friend_cta">Message</string>
+    <string name="social_chat_empty_title">Say hi to %1$s!</string>
+    <string name="social_chat_empty_desc">Send a quick message or tap a study cheer below to motivate each other live.</string>
+    <string name="social_chat_input_placeholder">Message %1$s…</string>
+    <string name="social_chat_send_desc">Send study message</string>
+
+    <!-- Custom Icon Studio -->
+    <string name="custom_icon_studio_title">Custom App Icon</string>
+    <string name="custom_icon_studio_subtitle">Personalize your icon across Home, Splash &amp; Profile</string>
+    <string name="custom_icon_pin_shortcut_cta">PIN CUSTOM ICON TO HOME</string>
 
     <!-- Journey Path -->
     <string name="journey_title">Focus Path</string>
-    <string name="journey_subtitle">Climb milestones and collect gem chests</string>
+    <string name="journey_subtitle">Study history, weekly PDF reports &amp; milestone chests</string>
 
-    <!-- Gems Shop -->
-    <string name="shop_title">Gem Vault &amp; Shop</string>
-    <string name="shop_subtitle">Unlock ambient soundscapes &amp; glass cosmetics</string>
+    <!-- Rewards Shop -->
+    <string name="shop_title">Rewards Shop</string>
+    <string name="shop_subtitle">Earn Play Points, claim tier chests &amp; unlock themes</string>
 
     <!-- Profile -->
     <string name="profile_title">Profile</string>
     <string name="profile_sign_in_google">Sign in with Google</string>
     <string name="profile_sign_out">Sign Out</string>
+
+    <!-- Verified Admin Dashboard -->
+    <string name="admin_badge_you_are_admin">Admin Dashboard</string>
+    <string name="admin_open_console">OPEN ADMIN DASHBOARD</string>
+    <string name="admin_dashboard_title">Admin Dashboard</string>
+    <string name="admin_panel_title">Admin Control Center</string>
+    <string name="admin_panel_subtitle">Firestore Admin Role · Live background management</string>
+    <string name="admin_zero_pii_title">Privacy Shield: Zero Personal Data</string>
+    <string name="admin_zero_pii_desc">Only public study directory &amp; app settings are managed. User emails, tasks, sessions, and private chats remain completely inaccessible.</string>
+    <string name="admin_zero_pii_compact">Privacy Shield: Only aggregate user counts &amp; public @handles are visible. Private user data stays isolated.</string>
+
+    <!-- Focus Streak Goal Counter -->
+    <string name="focus_streak_banner_title">Focus Goal Streak</string>
+    <string name="focus_streak_banner_subtitle">Consecutive days hitting your daily study target</string>
+    <string name="focus_streak_goal_met_today">Today\'s goal hit! Flame protected</string>
+    <string name="focus_streak_goal_remaining">%1$d min left to light today\'s goal flame</string>
+
+    <!-- Subject Study Alarms -->
+    <string name="subject_alarm_channel_name">Subject Study Alarms</string>
+    <string name="subject_alarm_channel_desc">Scheduled daily study alarms for each subject</string>
+    <string name="subject_alarms_title">Subject Study Alarms</string>
+    <string name="subject_alarms_subtitle">Set separate daily alarms for Math, Science &amp; more</string>
+    <string name="subject_alarms_add_cta">Add Alarm</string>
+    <string name="subject_alarms_empty">No subject alarms yet. Add one like Math at 6:00 AM or Science at 7:00 AM!</string>
+
+    <!-- 500-Hour Pro Edition -->
+    <string name="pro_edition_title">500-Hour Pro Edition</string>
+    <string name="pro_edition_locked_badge">LOCKED • NO BYPASS</string>
+    <string name="pro_edition_unlocked_badge">PRO UNLOCKED</string>
+    <string name="pro_edition_unlock_rule">Unlocks strictly after completing 500 verified study hours. Cannot be bought or bypassed.</string>
+    <string name="pro_edition_open_studio">OPEN PRO STUDIO</string>
+    <string name="pro_edition_share_app">Share Try Again App</string>
+
+    <!-- Custom Icon Compact Toggle -->
+    <string name="custom_icon_expand_cta">Full View</string>
+    <string name="custom_icon_hide_cta">Hide</string>
+
+    <!-- Scholar Profile & Multi-Auth -->
+    <string name="profile_change_photo">Change Photo</string>
+    <string name="profile_details_title">Scholar Profile Details</string>
+    <string name="profile_details_edit_cta">Edit Details</string>
+    <string name="profile_auth_methods_title">Sign-In &amp; Account Sync</string>
+    <string name="profile_auth_email_zoho">Email / Zoho Mail</string>
+    <string name="profile_auth_phone_otp">Phone + OTP</string>
+    <string name="profile_auth_github">GitHub</string>
 </resources>

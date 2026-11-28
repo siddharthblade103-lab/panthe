@@ -21,6 +21,7 @@
         "claimedMilestones": { "type": "array", "description": "Focus Path milestone IDs whose gem chests have been claimed" },
         "equippedTheme": { "type": "string", "description": "Currently equipped glassmorphism theme ID" },
         "equippedBadge": { "type": "string", "description": "Currently equipped mascot badge/ring style ID" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Firestore RBAC role ('user' default; 'admin' grants access to Admin Dashboard and app-wide settings)" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
       },
@@ -96,6 +97,317 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "PublicStudyProfile": {
+      "title": "PublicStudyProfile",
+      "description": "Consensual, PII-free study-only presence and daily study statistics shared with added study friends in real time.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "handle": { "type": "string", "description": "Unique lowercase study handle (3..30 chars, alphanumeric + underscore)" },
+        "displayName": { "type": "string", "description": "Public study display name" },
+        "status": { "type": "string", "enum": ["FOCUSING", "BREAK", "READY"], "description": "Current live focus state" },
+        "currentSubject": { "type": "string", "description": "Current active study subject" },
+        "todayFocusMinutes": { "type": "integer", "description": "Study minutes completed today (0..1440)" },
+        "dailyGoalMinutes": { "type": "integer", "description": "Daily focus goal in minutes (15..720)" },
+        "currentStreak": { "type": "integer", "description": "Current consecutive focus day streak" },
+        "totalFocusMinutes": { "type": "integer", "description": "Lifetime focused study minutes" },
+        "level": { "type": "integer", "description": "Scholar level derived from XP (1..1000)" },
+        "equippedBadge": { "type": "string", "description": "Equipped mascot aura badge ID" },
+        "lastFocusDate": { "type": "string", "description": "Local YYYY-MM-DD date of last completed focus session" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())" }
+      },
+      "required": [
+        "userId",
+        "handle",
+        "displayName",
+        "status",
+        "currentSubject",
+        "todayFocusMinutes",
+        "dailyGoalMinutes",
+        "currentStreak",
+        "totalFocusMinutes",
+        "level",
+        "equippedBadge",
+        "lastFocusDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudyHandleLookup": {
+      "title": "StudyHandleLookup",
+      "description": "Direct O(1) lookup document mapping a unique lowercase @handle to a userId for adding study friends without listing collections.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "handle": { "type": "string", "description": "Unique lowercase study handle matching document ID" },
+        "displayName": { "type": "string", "description": "Owner study display name" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())" }
+      },
+      "required": [
+        "userId",
+        "handle",
+        "displayName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FriendLink": {
+      "title": "FriendLink",
+      "description": "Owner-scoped reference to an added study friend whose PublicStudyProfile is observed in real time.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "friendUid": { "type": "string", "description": "Added friend's Firebase UID matching document ID" },
+        "friendHandle": { "type": "string", "description": "Added friend's lowercase handle" },
+        "friendDisplayName": { "type": "string", "description": "Added friend's display name snapshot" },
+        "addedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())" }
+      },
+      "required": [
+        "userId",
+        "friendUid",
+        "friendHandle",
+        "friendDisplayName",
+        "addedAt"
+      ]
+    },
+    "BlockedUser": {
+      "title": "BlockedUser",
+      "description": "Owner-scoped private record of a blocked scholar hidden from friends, pending invites, and leaderboard views.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "blockedUid": { "type": "string", "description": "Blocked user's Firebase UID matching document ID" },
+        "blockedHandle": { "type": "string", "description": "Blocked user's lowercase handle snapshot" },
+        "blockedDisplayName": { "type": "string", "description": "Blocked user's display name snapshot" },
+        "blockedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId",
+        "blockedUid",
+        "blockedHandle",
+        "blockedDisplayName",
+        "blockedAt"
+      ]
+    },
+    "StudyChallenge": {
+      "title": "StudyChallenge",
+      "description": "Shared group focus challenge created with friends where all participants' focus minutes aggregate toward a collective goal.",
+      "type": "object",
+      "properties": {
+        "creatorUid": { "type": "string", "description": "Creator Firebase UID" },
+        "creatorName": { "type": "string", "description": "Creator display name" },
+        "title": { "type": "string", "description": "Challenge title (2..80 chars)" },
+        "subject": { "type": "string", "description": "Target subject or 'All Subjects'" },
+        "targetMinutes": { "type": "integer", "description": "Collective focus goal in minutes (30..10000)" },
+        "inviteCode": { "type": "string", "description": "6-character uppercase alphanumeric share code" },
+        "memberUids": { "type": "array", "description": "UIDs of joined participants (1..20)" },
+        "invitedUids": { "type": "array", "description": "UIDs of invited friends awaiting acceptance (0..20)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "creatorUid",
+        "creatorName",
+        "title",
+        "subject",
+        "targetMinutes",
+        "inviteCode",
+        "memberUids",
+        "invitedUids",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChallengeParticipant": {
+      "title": "ChallengeParticipant",
+      "description": "Individual participant's aggregated study minutes and session count inside a Study Challenge.",
+      "type": "object",
+      "properties": {
+        "challengeId": { "type": "string", "description": "Parent StudyChallenge document ID" },
+        "userId": { "type": "string", "description": "Participant Firebase UID" },
+        "displayName": { "type": "string", "description": "Participant display name" },
+        "handle": { "type": "string", "description": "Participant study handle" },
+        "contributedMinutes": { "type": "integer", "description": "Minutes contributed toward the shared challenge goal" },
+        "sessionsCompleted": { "type": "integer", "description": "Number of focus sessions contributed" },
+        "joinedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "challengeId",
+        "userId",
+        "displayName",
+        "handle",
+        "contributedMinutes",
+        "sessionsCompleted",
+        "joinedAt",
+        "updatedAt"
+      ]
+    },
+    "ChallengeCode": {
+      "title": "ChallengeCode",
+      "description": "Direct O(1) lookup mapping a 6-character challenge invite code to a StudyChallenge ID.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "6-character uppercase invite code" },
+        "challengeId": { "type": "string", "description": "Target StudyChallenge document ID" },
+        "creatorUid": { "type": "string", "description": "Creator Firebase UID" },
+        "title": { "type": "string", "description": "Challenge title snapshot" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "code",
+        "challengeId",
+        "creatorUid",
+        "title",
+        "createdAt"
+      ]
+    },
+    "StreakReminderSettings": {
+      "title": "StreakReminderSettings",
+      "description": "Owner-scoped Firebase Cloud Messaging device token, subscribed topic, daily streak alert time, timezone, and latest focus date for automated daily streak push notifications.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "enabled": { "type": "boolean", "description": "Whether daily streak push notifications are enabled" },
+        "reminderHour": { "type": "integer", "description": "Local reminder hour in 24-hour format (0..23)" },
+        "reminderMinute": { "type": "integer", "description": "Local reminder minute (0..59)" },
+        "timezoneId": { "type": "string", "description": "IANA timezone ID (e.g. America/Los_Angeles)" },
+        "fcmToken": { "type": "string", "description": "Firebase Cloud Messaging device registration token" },
+        "fcmTopic": { "type": "string", "description": "Subscribed FCM reminder time-slot topic" },
+        "lastFocusDate": { "type": "string", "description": "Local YYYY-MM-DD date of last started or completed focus session" },
+        "currentStreak": { "type": "integer", "description": "Current consecutive focus day streak" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId",
+        "enabled",
+        "reminderHour",
+        "reminderMinute",
+        "timezoneId",
+        "fcmToken",
+        "fcmTopic",
+        "lastFocusDate",
+        "currentStreak",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudyChat": {
+      "title": "StudyChat",
+      "description": "Private 1-to-1 study direct message thread between two Study Circle scholars keyed deterministically by sorted participant UIDs.",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array", "description": "Exactly two distinct participant Firebase UIDs" },
+        "lastMessageText": { "type": "string", "description": "Preview of the latest message (max 500 chars)" },
+        "lastSenderUid": { "type": "string", "description": "Firebase UID of the latest message sender" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "participantUids",
+        "lastMessageText",
+        "lastSenderUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudyChatMessage": {
+      "title": "StudyChatMessage",
+      "description": "Immutable direct message sent inside a 1-to-1 Study Circle chat thread.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string", "description": "Parent StudyChat deterministic document ID" },
+        "participantUids": { "type": "array", "description": "Denormalized pair of participant Firebase UIDs for rule-aligned queries" },
+        "senderUid": { "type": "string", "description": "Sender Firebase UID" },
+        "senderDisplayName": { "type": "string", "description": "Sender display name snapshot (1..60 chars)" },
+        "text": { "type": "string", "description": "Message body (1..500 chars)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "chatId",
+        "participantUids",
+        "senderUid",
+        "senderDisplayName",
+        "text",
+        "createdAt"
+      ]
+    },
+    "AppLiveConfig": {
+      "title": "AppLiveConfig",
+      "description": "Admin-managed live remote configuration streamed silently in the background to all signed-in clients with zero loading spinners.",
+      "type": "object",
+      "properties": {
+        "configVersion": { "type": "integer", "description": "Monotonic live update revision number (1..1000000)" },
+        "liveTagline": { "type": "string", "description": "Live subtitle shown in Focus Hub header (0..100 chars)" },
+        "announcementTitle": { "type": "string", "description": "Live update or announcement banner title (0..80 chars)" },
+        "announcementBody": { "type": "string", "description": "Live update or announcement banner body (0..240 chars)" },
+        "announcementActive": { "type": "boolean", "description": "Whether the live announcement banner is visible" },
+        "updateNoticeLabel": { "type": "string", "description": "Compact live release channel or patch label (0..60 chars)" },
+        "defaultFocusMinutes": { "type": "integer", "description": "Recommended default sprint duration in minutes (5..120)" },
+        "gemMultiplierPercent": { "type": "integer", "description": "Focus gem reward multiplier in percent (100..300)" },
+        "socialEnabled": { "type": "boolean", "description": "Live toggle for Social Circle tab visibility" },
+        "launcherEnabled": { "type": "boolean", "description": "Live toggle for Study Launcher mode" },
+        "ambientDrawerEnabled": { "type": "boolean", "description": "Live toggle for Ambient Sound selection drawer" },
+        "maintenanceBannerEnabled": { "type": "boolean", "description": "Shows a calm non-blocking maintenance status badge" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of latest live push" }
+      },
+      "required": [
+        "configVersion",
+        "liveTagline",
+        "announcementTitle",
+        "announcementBody",
+        "announcementActive",
+        "updateNoticeLabel",
+        "defaultFocusMinutes",
+        "gemMultiplierPercent",
+        "socialEnabled",
+        "launcherEnabled",
+        "ambientDrawerEnabled",
+        "maintenanceBannerEnabled",
+        "updatedAt"
+      ]
+    },
+    "AdminNotice": {
+      "title": "AdminNotice",
+      "description": "Official Admin broadcast or direct non-PII message sent to all scholars or a specific public study handle.",
+      "type": "object",
+      "properties": {
+        "audienceUids": { "type": "array", "description": "Either ['ALL'] for all scholars or [targetUid] for a direct notice" },
+        "targetLabel": { "type": "string", "description": "Public audience label such as 'All Scholars' or '@handle' (1..60 chars)" },
+        "title": { "type": "string", "description": "Notice title (1..80 chars)" },
+        "body": { "type": "string", "description": "Notice body text (1..400 chars)" },
+        "kind": { "type": "string", "enum": ["UPDATE", "BROADCAST", "DIRECT", "ALERT"], "description": "Visual notice category" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "audienceUids",
+        "targetLabel",
+        "title",
+        "body",
+        "kind",
+        "createdAt"
+      ]
+    },
+    "AccountModeration": {
+      "title": "AccountModeration",
+      "description": "Zero-PII account removal status written by verified Admin when removing a public study account.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Target Firebase UID matching document ID" },
+        "status": { "type": "string", "enum": ["REMOVED", "ACTIVE"], "description": "Public account standing" },
+        "reason": { "type": "string", "description": "Brief moderation reason shown to the affected user (1..160 chars)" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId",
+        "status",
+        "reason",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -110,6 +422,58 @@
     "/users/{userId}/tasks/{taskId}": {
       "schema": { "$ref": "#/entities/PomodoroTask" },
       "description": "Study tasks associated with Pomodoro sessions"
+    },
+    "/users/{userId}/friends/{friendUid}": {
+      "schema": { "$ref": "#/entities/FriendLink" },
+      "description": "Owner's added study friends observed on the Social Dashboard"
+    },
+    "/users/{userId}/blockedUsers/{blockedUid}": {
+      "schema": { "$ref": "#/entities/BlockedUser" },
+      "description": "Owner's private blocked scholars list enforced client- and rule-side"
+    },
+    "/users/{userId}/notificationSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/StreakReminderSettings" },
+      "description": "Owner's private FCM registration token and daily study streak push notification schedule"
+    },
+    "/studyProfiles/{userId}": {
+      "schema": { "$ref": "#/entities/PublicStudyProfile" },
+      "description": "Consensual, PII-free live study statistics readable by signed-in study friends via direct document get and bounded top-50 streak leaderboard queries"
+    },
+    "/studyHandles/{handle}": {
+      "schema": { "$ref": "#/entities/StudyHandleLookup" },
+      "description": "Direct O(1) handle-to-UID resolution directory for adding friends by @handle"
+    },
+    "/studyChallenges/{challengeId}": {
+      "schema": { "$ref": "#/entities/StudyChallenge" },
+      "description": "Shared group Study Challenges with invited friends and member lists"
+    },
+    "/studyChallenges/{challengeId}/participants/{participantUid}": {
+      "schema": { "$ref": "#/entities/ChallengeParticipant" },
+      "description": "Live per-participant focus contributions aggregated into shared challenge progress"
+    },
+    "/challengeCodes/{code}": {
+      "schema": { "$ref": "#/entities/ChallengeCode" },
+      "description": "Direct O(1) invite code lookup directory for joining Study Challenges"
+    },
+    "/studyChats/{chatId}": {
+      "schema": { "$ref": "#/entities/StudyChat" },
+      "description": "Private 1-to-1 study direct chat metadata between two Study Circle scholars"
+    },
+    "/studyChats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/StudyChatMessage" },
+      "description": "Real-time 1-to-1 messages exchanged between Study Circle friends"
+    },
+    "/appConfig/{configId}": {
+      "schema": { "$ref": "#/entities/AppLiveConfig" },
+      "description": "Live background remote app configuration pushed by the verified Admin and streamed silently to clients"
+    },
+    "/adminNotices/{noticeId}": {
+      "schema": { "$ref": "#/entities/AdminNotice" },
+      "description": "Official Admin broadcasts and direct study notices delivered silently in real time"
+    },
+    "/accountModeration/{userId}": {
+      "schema": { "$ref": "#/entities/AccountModeration" },
+      "description": "Zero-PII account removal records managed exclusively by the verified Admin"
     }
   }
 }

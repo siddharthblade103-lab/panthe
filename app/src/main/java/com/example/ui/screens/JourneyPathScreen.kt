@@ -66,8 +66,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.model.DayFocusPoint
+import com.example.data.model.FocusSession
 import com.example.data.model.PathMilestone
 import com.example.data.model.StreakDayProgress
+import com.example.data.model.StudyGoalPeriod
 import com.example.data.model.UserProfile
 import com.example.ui.components.FocusStreaksTrackerCard
 import com.example.ui.components.GemPillBadge
@@ -75,6 +77,10 @@ import com.example.ui.components.LocalTactileSound
 import com.example.ui.components.MorphismActionButton
 import com.example.ui.components.MorphismSurface
 import com.example.ui.components.StaggeredEntrance
+import com.example.ui.components.StudyGoalProgressCard
+import com.example.ui.components.StudyHistoryCard
+import com.example.ui.components.WeeklyPdfReportCard
+import com.example.ui.components.WeeklySummaryDashboardCard
 import com.example.ui.theme.LocalTryAgainPalette
 import com.example.ui.theme.NunitoDisplayFamily
 
@@ -82,24 +88,29 @@ import com.example.ui.theme.NunitoDisplayFamily
 fun JourneyPathScreen(
     profile: UserProfile,
     todayMinutes: Int,
+    weeklyMinutes: Int,
+    weeklyGoalMinutes: Int,
+    selectedGoalPeriod: StudyGoalPeriod,
     weeklyPoints: List<DayFocusPoint>,
     streakDays: List<StreakDayProgress>,
+    sessions: List<FocusSession>,
     milestones: List<PathMilestone>,
+    weekendPdfEnabled: Boolean,
+    isExportingPdf: Boolean,
+    hideStudyHistory: Boolean = false,
+    onSelectGoalPeriod: (StudyGoalPeriod) -> Unit,
+    onSaveStudyGoals: (StudyGoalPeriod, Int, Int) -> Unit,
+    onExportWeeklyPdf: () -> Unit,
+    onToggleWeekendPdf: (Boolean) -> Unit,
+    onToggleHideStudyHistory: (Boolean) -> Unit = {},
     onClaimMilestone: (PathMilestone) -> Unit,
     onOpenShop: () -> Unit
 ) {
     val palette = LocalTryAgainPalette.current
-    val dailyProgress = (todayMinutes.toFloat() / profile.dailyGoalMinutes.coerceAtLeast(15)).coerceIn(0f, 1f)
     val firstPendingIdx = milestones.indexOfFirst { !it.isClaimed }.takeIf { it >= 0 } ?: milestones.lastIndex
 
     var chartRevealed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { chartRevealed = true }
-
-    val animatedGoal by animateFloatAsState(
-        targetValue = if (chartRevealed) dailyProgress else 0f,
-        animationSpec = spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessLow),
-        label = "dailyGoalProgress"
-    )
 
     LazyColumn(
         modifier = Modifier
@@ -133,9 +144,19 @@ fun JourneyPathScreen(
             }
         }
 
-        // Focus Streaks Day-by-Day Tracker + 14-Day Habit Consistency Ribbon
+        // Interactive 7-Day Weekly Summary Dashboard (Total Focus Time & Play Points Earned)
         item {
             StaggeredEntrance(index = 1) {
+                WeeklySummaryDashboardCard(
+                    weeklyPoints = weeklyPoints,
+                    dailyGoalMinutes = profile.dailyGoalMinutes
+                )
+            }
+        }
+
+        // Focus Streaks Day-by-Day Tracker + 14-Day Habit Consistency Ribbon
+        item {
+            StaggeredEntrance(index = 2) {
                 FocusStreaksTrackerCard(
                     currentStreak = profile.currentStreak,
                     longestStreak = profile.longestStreak,
@@ -145,133 +166,49 @@ fun JourneyPathScreen(
             }
         }
 
-        // Animated Daily Goal & Growing 7-Day Glass Bars Card
+        // Animated Daily/Weekly Study Goal Progress Card
         item {
-            StaggeredEntrance(index = 2) {
-                MorphismSurface(
-                    modifier = Modifier.fillMaxWidth(),
-                    cornerRadius = 28.dp,
-                    elevated = true,
-                    shimmer = true,
-                    contentPadding = PaddingValues(18.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Today's Focus Goal",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = palette.textPrimary
-                                )
-                                Text(
-                                    text = "$todayMinutes / ${profile.dailyGoalMinutes} min completed",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = palette.textSecondary
-                                )
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(50),
-                                color = palette.primarySoft
-                            ) {
-                                Text(
-                                    text = "${(dailyProgress * 100).toInt()}%",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = palette.primaryLip,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
+            StaggeredEntrance(index = 3) {
+                StudyGoalProgressCard(
+                    todayMinutes = todayMinutes,
+                    dailyGoalMinutes = profile.dailyGoalMinutes,
+                    weeklyMinutes = weeklyMinutes,
+                    weeklyGoalMinutes = weeklyGoalMinutes,
+                    selectedPeriod = selectedGoalPeriod,
+                    onSelectPeriod = onSelectGoalPeriod,
+                    onSaveStudyGoals = onSaveStudyGoals
+                )
+            }
+        }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+        // Weekly Study PDF Report & Weekend Delivery Card
+        item {
+            StaggeredEntrance(index = 3) {
+                WeeklyPdfReportCard(
+                    weeklyPoints = weeklyPoints,
+                    sessions = sessions,
+                    weekendAutoReportEnabled = weekendPdfEnabled,
+                    isExportingPdf = isExportingPdf,
+                    onExportAndSendPdf = onExportWeeklyPdf,
+                    onToggleWeekendAutoReport = onToggleWeekendPdf
+                )
+            }
+        }
 
-                        LinearProgressIndicator(
-                            progress = { animatedGoal },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(10.dp)
-                                .clip(RoundedCornerShape(50)),
-                            color = palette.primary,
-                            trackColor = palette.glassBorderSubtle
-                        )
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        val maxMin = (weeklyPoints.maxOfOrNull { it.minutes } ?: 30).coerceAtLeast(30)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(106.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            weeklyPoints.forEachIndexed { idx, point ->
-                                val isToday = idx == weeklyPoints.lastIndex
-                                val targetFraction = (point.minutes.toFloat() / maxMin).coerceIn(0.08f, 1f)
-                                val barFraction by animateFloatAsState(
-                                    targetValue = if (chartRevealed) targetFraction else 0.05f,
-                                    animationSpec = spring(
-                                        dampingRatio = 0.72f,
-                                        stiffness = Spring.StiffnessLow
-                                    ),
-                                    label = "bar_$idx"
-                                )
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Bottom,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = if (point.minutes > 0) "${point.minutes}m" else "",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                        color = palette.textMuted
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .width(20.dp)
-                                            .height(64.dp),
-                                        contentAlignment = Alignment.BottomCenter
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .fillMaxHeight()
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(palette.chipUnselected)
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .fillMaxHeight(barFraction)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(
-                                                    if (isToday) palette.primary else palette.primary.copy(alpha = 0.56f)
-                                                )
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = point.dayLabel,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium
-                                        ),
-                                        color = if (isToday) palette.primaryLip else palette.textSecondary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        // Detailed Study History Card (Hideable)
+        item {
+            StaggeredEntrance(index = 4) {
+                StudyHistoryCard(
+                    sessions = sessions,
+                    isHidden = hideStudyHistory,
+                    onToggleHidden = onToggleHideStudyHistory
+                )
             }
         }
 
         // Section Label
         item {
-            StaggeredEntrance(index = 2) {
+            StaggeredEntrance(index = 5) {
                 Text(
                     text = "Milestone Path",
                     style = MaterialTheme.typography.titleLarge.copy(fontFamily = NunitoDisplayFamily),
@@ -299,7 +236,7 @@ fun JourneyPathScreen(
 }
 
 @Composable
-private fun MilestonePathRow(
+internal fun MilestonePathRow(
     milestone: PathMilestone,
     stepNumber: Int,
     isCurrent: Boolean,

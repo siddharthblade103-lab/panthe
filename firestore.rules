@@ -15,8 +15,30 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isBootstrapAdmin() {
+      return isSignedIn() &&
+             'email' in request.auth.token &&
+             'email_verified' in request.auth.token &&
+             request.auth.token.email == 'siddharthbade104@gmail.com' &&
+             request.auth.token.email_verified == true;
+    }
+
+    function hasFirestoreAdminRole() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin';
+    }
+
+    function isAdmin() {
+      return hasFirestoreAdminRole() || isBootstrapAdmin();
+    }
+
     function isValidId(id) {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidHandle(handle) {
+      return handle is string && handle.size() >= 3 && handle.size() <= 30 && handle.matches('^[a-z0-9_]+$');
     }
 
     function incoming() {
@@ -56,6 +78,7 @@ service cloud.firestore {
              isValidStringList(data.claimedMilestones, 30) &&
              data.equippedTheme is string && data.equippedTheme.size() >= 1 && data.equippedTheme.size() <= 40 &&
              data.equippedBadge is string && data.equippedBadge.size() >= 1 && data.equippedBadge.size() <= 40 &&
+             (!('role' in data) || (data.role is string && data.role in ['user', 'admin'])) &&
              isValidTimestamp(data.createdAt) &&
              isValidTimestamp(data.updatedAt);
     }
@@ -87,6 +110,211 @@ service cloud.firestore {
              isValidTimestamp(data.updatedAt);
     }
 
+    function isValidPublicStudyProfile(data, userId) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             isValidHandle(data.handle) &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.status is string && data.status in ['FOCUSING', 'BREAK', 'READY'] &&
+             data.currentSubject is string && data.currentSubject.size() >= 1 && data.currentSubject.size() <= 40 &&
+             data.todayFocusMinutes is int && data.todayFocusMinutes >= 0 && data.todayFocusMinutes <= 1440 &&
+             data.dailyGoalMinutes is int && data.dailyGoalMinutes >= 15 && data.dailyGoalMinutes <= 720 &&
+             data.currentStreak is int && data.currentStreak >= 0 && data.currentStreak <= 10000 &&
+             data.totalFocusMinutes is int && data.totalFocusMinutes >= 0 && data.totalFocusMinutes <= 1000000 &&
+             data.level is int && data.level >= 1 && data.level <= 1000 &&
+             data.equippedBadge is string && data.equippedBadge.size() >= 1 && data.equippedBadge.size() <= 40 &&
+             data.lastFocusDate is string && data.lastFocusDate.size() <= 20 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStudyHandleLookup(data, handle) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             isValidId(data.userId) &&
+             isValidHandle(data.handle) &&
+             data.handle == handle &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidFriendLink(data, userId, friendUid) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.friendUid is string &&
+             data.friendUid == friendUid &&
+             data.friendUid != userId &&
+             isValidId(data.friendUid) &&
+             isValidHandle(data.friendHandle) &&
+             data.friendDisplayName is string && data.friendDisplayName.size() >= 1 && data.friendDisplayName.size() <= 60 &&
+             isValidTimestamp(data.addedAt);
+    }
+
+    function isValidBlockedUser(data, userId, blockedUid) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.blockedUid is string &&
+             data.blockedUid == blockedUid &&
+             data.blockedUid != userId &&
+             isValidId(data.blockedUid) &&
+             data.blockedHandle is string && data.blockedHandle.size() <= 30 &&
+             data.blockedDisplayName is string && data.blockedDisplayName.size() >= 1 && data.blockedDisplayName.size() <= 60 &&
+             isValidTimestamp(data.blockedAt);
+    }
+
+    function isValidStreakReminderSettings(data, userId) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.enabled is bool &&
+             data.reminderHour is int && data.reminderHour >= 0 && data.reminderHour <= 23 &&
+             data.reminderMinute is int && data.reminderMinute >= 0 && data.reminderMinute <= 59 &&
+             data.timezoneId is string && data.timezoneId.size() >= 1 && data.timezoneId.size() <= 64 &&
+             data.fcmToken is string && data.fcmToken.size() <= 512 &&
+             data.fcmTopic is string && data.fcmTopic.size() <= 80 &&
+             data.lastFocusDate is string && data.lastFocusDate.size() <= 20 &&
+             data.currentStreak is int && data.currentStreak >= 0 && data.currentStreak <= 10000 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidChallengeCode(code) {
+      return code is string && code.size() == 6 && code.matches('^[A-Z0-9]{6}$');
+    }
+
+    function isValidStudyChallenge(data) {
+      return data.creatorUid is string &&
+             isValidId(data.creatorUid) &&
+             data.creatorName is string && data.creatorName.size() >= 1 && data.creatorName.size() <= 60 &&
+             data.title is string && data.title.size() >= 2 && data.title.size() <= 80 &&
+             data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 40 &&
+             data.targetMinutes is int && data.targetMinutes >= 30 && data.targetMinutes <= 10000 &&
+             isValidChallengeCode(data.inviteCode) &&
+             isValidStringList(data.memberUids, 20) &&
+             data.memberUids.size() >= 1 &&
+             isValidStringList(data.invitedUids, 20) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidChallengeParticipant(data, challengeId, participantUid) {
+      return data.challengeId is string &&
+             data.challengeId == challengeId &&
+             data.userId is string &&
+             data.userId == participantUid &&
+             data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.handle is string && data.handle.size() <= 30 &&
+             data.contributedMinutes is int && data.contributedMinutes >= 0 && data.contributedMinutes <= 100000 &&
+             data.sessionsCompleted is int && data.sessionsCompleted >= 0 && data.sessionsCompleted <= 10000 &&
+             isValidTimestamp(data.joinedAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidChallengeCodeDoc(data, code) {
+      return isValidChallengeCode(data.code) &&
+             data.code == code &&
+             data.challengeId is string && isValidId(data.challengeId) &&
+             data.creatorUid is string && data.creatorUid == request.auth.uid &&
+             data.title is string && data.title.size() >= 2 && data.title.size() <= 80 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function matchesChatId(chatId, participants) {
+      return participants is list &&
+             participants.size() == 2 &&
+             participants[0] is string &&
+             participants[1] is string &&
+             participants[0] != participants[1] &&
+             (chatId == participants[0] + '_' + participants[1] ||
+              chatId == participants[1] + '_' + participants[0]);
+    }
+
+    function isChatMemberPath(chatId) {
+      return isSignedIn() &&
+             isValidId(chatId) &&
+             (chatId.matches('^' + request.auth.uid + '_.+$') ||
+              chatId.matches('^.+_' + request.auth.uid + '$'));
+    }
+
+    function isValidStudyChat(data, chatId) {
+      return data.participantUids is list &&
+             data.participantUids.size() == 2 &&
+             data.participantUids[0] is string &&
+             data.participantUids[1] is string &&
+             data.participantUids[0] != data.participantUids[1] &&
+             isValidId(data.participantUids[0]) &&
+             isValidId(data.participantUids[1]) &&
+             matchesChatId(chatId, data.participantUids) &&
+             data.lastMessageText is string && data.lastMessageText.size() <= 500 &&
+             data.lastSenderUid is string &&
+             (data.lastSenderUid == '' || data.lastSenderUid in data.participantUids) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStudyChatMessage(data, chatId) {
+      return data.chatId is string &&
+             data.chatId == chatId &&
+             data.participantUids is list &&
+             data.participantUids.size() == 2 &&
+             data.participantUids[0] is string &&
+             data.participantUids[1] is string &&
+             data.participantUids[0] != data.participantUids[1] &&
+             isValidId(data.participantUids[0]) &&
+             isValidId(data.participantUids[1]) &&
+             matchesChatId(chatId, data.participantUids) &&
+             request.auth.uid in data.participantUids &&
+             data.senderUid is string &&
+             data.senderUid == request.auth.uid &&
+             data.senderUid in data.participantUids &&
+             data.senderDisplayName is string && data.senderDisplayName.size() >= 1 && data.senderDisplayName.size() <= 60 &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 500 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidAppLiveConfig(data) {
+      return data.configVersion is int && data.configVersion >= 1 && data.configVersion <= 1000000 &&
+             data.liveTagline is string && data.liveTagline.size() <= 100 &&
+             data.announcementTitle is string && data.announcementTitle.size() <= 80 &&
+             data.announcementBody is string && data.announcementBody.size() <= 240 &&
+             data.announcementActive is bool &&
+             data.updateNoticeLabel is string && data.updateNoticeLabel.size() <= 60 &&
+             data.defaultFocusMinutes is int && data.defaultFocusMinutes >= 5 && data.defaultFocusMinutes <= 120 &&
+             data.gemMultiplierPercent is int && data.gemMultiplierPercent >= 100 && data.gemMultiplierPercent <= 300 &&
+             data.socialEnabled is bool &&
+             data.launcherEnabled is bool &&
+             data.ambientDrawerEnabled is bool &&
+             data.maintenanceBannerEnabled is bool &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAdminNotice(data) {
+      return data.audienceUids is list &&
+             data.audienceUids.size() >= 1 &&
+             data.audienceUids.size() <= 2 &&
+             data.audienceUids[0] is string &&
+             data.audienceUids[0].size() >= 1 && data.audienceUids[0].size() <= 128 &&
+             data.targetLabel is string && data.targetLabel.size() >= 1 && data.targetLabel.size() <= 60 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+             data.body is string && data.body.size() >= 1 && data.body.size() <= 400 &&
+             data.kind is string && data.kind in ['UPDATE', 'BROADCAST', 'DIRECT', 'ALERT'] &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidAccountModeration(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             isValidId(data.userId) &&
+             data.status is string && data.status in ['REMOVED', 'ACTIVE'] &&
+             data.reason is string && data.reason.size() >= 1 && data.reason.size() <= 160 &&
+             isValidTimestamp(data.updatedAt);
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
       allow list: if false;
@@ -107,8 +335,11 @@ service cloud.firestore {
                          'focusXp', 'gems', 'totalGemsEarned', 'lastFocusDate',
                          'subjects', 'unlockedSounds', 'unlockedCosmetics',
                          'claimedMilestones', 'equippedTheme', 'equippedBadge',
-                         'createdAt', 'updatedAt'
+                         'role', 'createdAt', 'updatedAt'
                        ]) &&
+                       (!('role' in incoming()) ||
+                        incoming().role == 'user' ||
+                        (incoming().role == 'admin' && isBootstrapAdmin())) &&
                        isValidUserProfile(incoming(), userId);
 
       allow update: if isOwner(userId) &&
@@ -116,13 +347,25 @@ service cloud.firestore {
                        isValidUserProfile(incoming(), userId) &&
                        incoming().userId == existing().userId &&
                        incoming().createdAt == existing().createdAt &&
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'displayName', 'dailyGoalMinutes', 'currentStreak',
-                         'longestStreak', 'totalFocusMinutes', 'focusXp',
-                         'gems', 'totalGemsEarned', 'lastFocusDate', 'subjects',
-                         'unlockedSounds', 'unlockedCosmetics', 'claimedMilestones',
-                         'equippedTheme', 'equippedBadge', 'updatedAt'
-                       ]);
+                       (
+                         (
+                           incoming().get('role', 'user') == existing().get('role', 'user') &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'displayName', 'dailyGoalMinutes', 'currentStreak',
+                             'longestStreak', 'totalFocusMinutes', 'focusXp',
+                             'gems', 'totalGemsEarned', 'lastFocusDate', 'subjects',
+                             'unlockedSounds', 'unlockedCosmetics', 'claimedMilestones',
+                             'equippedTheme', 'equippedBadge', 'updatedAt'
+                           ])
+                         ) ||
+                         (
+                           isBootstrapAdmin() &&
+                           incoming().role == 'admin' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'role', 'updatedAt'
+                           ])
+                         )
+                       );
 
       allow delete: if isOwner(userId) && isValidId(userId);
 
@@ -176,6 +419,401 @@ service cloud.firestore {
 
         allow delete: if isOwner(userId) && isValidId(taskId);
       }
+
+      match /friends/{friendUid} {
+        allow get: if isOwner(userId) && isValidId(friendUid);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(friendUid) &&
+                         friendUid != userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'friendUid', 'friendHandle', 'friendDisplayName', 'addedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'friendUid', 'friendHandle', 'friendDisplayName', 'addedAt'
+                         ]) &&
+                         isValidFriendLink(incoming(), userId, friendUid) &&
+                         exists(/databases/$(database)/documents/studyProfiles/$(friendUid));
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(friendUid);
+      }
+
+      match /blockedUsers/{blockedUid} {
+        allow get: if isOwner(userId) && isValidId(blockedUid);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(blockedUid) &&
+                         blockedUid != userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'blockedUid', 'blockedHandle', 'blockedDisplayName', 'blockedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'blockedUid', 'blockedHandle', 'blockedDisplayName', 'blockedAt'
+                         ]) &&
+                         isValidBlockedUser(incoming(), userId, blockedUid);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(blockedUid);
+      }
+
+      match /notificationSettings/{settingId} {
+        allow get: if isOwner(userId) && settingId == 'streakReminder';
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         settingId == 'streakReminder' &&
+                         incoming().keys().hasAll([
+                           'userId', 'enabled', 'reminderHour', 'reminderMinute',
+                           'timezoneId', 'fcmToken', 'fcmTopic', 'lastFocusDate',
+                           'currentStreak', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'enabled', 'reminderHour', 'reminderMinute',
+                           'timezoneId', 'fcmToken', 'fcmTopic', 'lastFocusDate',
+                           'currentStreak', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidStreakReminderSettings(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         settingId == 'streakReminder' &&
+                         isValidStreakReminderSettings(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'enabled', 'reminderHour', 'reminderMinute',
+                           'timezoneId', 'fcmToken', 'fcmTopic', 'lastFocusDate',
+                           'currentStreak', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && settingId == 'streakReminder';
+      }
+    }
+
+    match /studyProfiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 50);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'handle', 'displayName', 'status', 'currentSubject',
+                         'todayFocusMinutes', 'dailyGoalMinutes', 'currentStreak',
+                         'totalFocusMinutes', 'level', 'equippedBadge', 'lastFocusDate',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'handle', 'displayName', 'status', 'currentSubject',
+                         'todayFocusMinutes', 'dailyGoalMinutes', 'currentStreak',
+                         'totalFocusMinutes', 'level', 'equippedBadge', 'lastFocusDate',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidPublicStudyProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidPublicStudyProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'handle', 'displayName', 'status', 'currentSubject',
+                         'todayFocusMinutes', 'dailyGoalMinutes', 'currentStreak',
+                         'totalFocusMinutes', 'level', 'equippedBadge', 'lastFocusDate',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+    }
+
+    match /studyHandles/{handle} {
+      allow get: if isSignedIn() && isValidHandle(handle);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidHandle(handle) &&
+                       incoming().keys().hasAll([
+                         'userId', 'handle', 'displayName', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'handle', 'displayName', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidStudyHandleLookup(incoming(), handle);
+
+      allow update: if isSignedIn() &&
+                       isValidHandle(handle) &&
+                       existing().userId == request.auth.uid &&
+                       isValidStudyHandleLookup(incoming(), handle) &&
+                       incoming().userId == existing().userId &&
+                       incoming().handle == existing().handle &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidHandle(handle) && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    match /studyChallenges/{challengeId} {
+      allow get: if isSignedIn() && isValidId(challengeId);
+      allow list: if isSignedIn() &&
+                     (request.auth.uid in resource.data.memberUids ||
+                      request.auth.uid in resource.data.invitedUids);
+
+      allow create: if isSignedIn() &&
+                       isValidId(challengeId) &&
+                       incoming().keys().hasAll([
+                         'creatorUid', 'creatorName', 'title', 'subject',
+                         'targetMinutes', 'inviteCode', 'memberUids',
+                         'invitedUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'creatorUid', 'creatorName', 'title', 'subject',
+                         'targetMinutes', 'inviteCode', 'memberUids',
+                         'invitedUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().creatorUid == request.auth.uid &&
+                       incoming().memberUids.size() == 1 &&
+                       request.auth.uid in incoming().memberUids &&
+                       isValidStudyChallenge(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(challengeId) &&
+                       isValidStudyChallenge(incoming()) &&
+                       incoming().creatorUid == existing().creatorUid &&
+                       incoming().inviteCode == existing().inviteCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Case 1: Challenge creator updates goal/title/members/invites
+                         (
+                           existing().creatorUid == request.auth.uid &&
+                           request.auth.uid in existing().memberUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'title', 'subject', 'targetMinutes', 'memberUids', 'invitedUids', 'updatedAt'
+                           ])
+                         ) ||
+                         // Case 2a: Non-creator member invites friends (cannot alter memberUids)
+                         (
+                           request.auth.uid in existing().memberUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'invitedUids', 'updatedAt'
+                           ])
+                         ) ||
+                         // Case 2b: Non-creator member leaves challenge (can only remove self from memberUids)
+                         (
+                           request.auth.uid in existing().memberUids &&
+                           existing().creatorUid != request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'memberUids', 'updatedAt'
+                           ]) &&
+                           !(request.auth.uid in incoming().memberUids) &&
+                           incoming().memberUids.size() == existing().memberUids.size() - 1 &&
+                           existing().memberUids.hasAll(incoming().memberUids)
+                         ) ||
+                         // Case 3: Non-member joins challenge (strictly self-append to memberUids)
+                         (
+                           !(request.auth.uid in existing().memberUids) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'memberUids', 'invitedUids', 'updatedAt'
+                           ]) &&
+                           request.auth.uid in incoming().memberUids &&
+                           incoming().memberUids.size() == existing().memberUids.size() + 1 &&
+                           incoming().memberUids.hasAll(existing().memberUids)
+                         ) ||
+                         // Case 4: Invited non-member safely declines invite (strictly removes self from invitedUids)
+                         (
+                           !(request.auth.uid in existing().memberUids) &&
+                           request.auth.uid in existing().invitedUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'invitedUids', 'updatedAt'
+                           ]) &&
+                           !(request.auth.uid in incoming().invitedUids) &&
+                           incoming().invitedUids.size() == existing().invitedUids.size() - 1 &&
+                           existing().invitedUids.hasAll(incoming().invitedUids)
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(challengeId) && existing().creatorUid == request.auth.uid;
+
+      match /participants/{participantUid} {
+        allow get, list: if isSignedIn() &&
+                            isValidId(challengeId) &&
+                            request.auth.uid in get(/databases/$(database)/documents/studyChallenges/$(challengeId)).data.memberUids;
+
+        allow create: if isOwner(participantUid) &&
+                         isValidId(challengeId) &&
+                         request.auth.uid in get(/databases/$(database)/documents/studyChallenges/$(challengeId)).data.memberUids &&
+                         incoming().keys().hasAll([
+                           'challengeId', 'userId', 'displayName', 'handle',
+                           'contributedMinutes', 'sessionsCompleted', 'joinedAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'challengeId', 'userId', 'displayName', 'handle',
+                           'contributedMinutes', 'sessionsCompleted', 'joinedAt', 'updatedAt'
+                         ]) &&
+                         isValidChallengeParticipant(incoming(), challengeId, participantUid);
+
+        allow update: if isOwner(participantUid) &&
+                         isValidId(challengeId) &&
+                         request.auth.uid in get(/databases/$(database)/documents/studyChallenges/$(challengeId)).data.memberUids &&
+                         isValidChallengeParticipant(incoming(), challengeId, participantUid) &&
+                         incoming().challengeId == existing().challengeId &&
+                         incoming().userId == existing().userId &&
+                         incoming().joinedAt == existing().joinedAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'displayName', 'handle', 'contributedMinutes', 'sessionsCompleted', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() &&
+                         isValidId(challengeId) &&
+                         (request.auth.uid == participantUid ||
+                          get(/databases/$(database)/documents/studyChallenges/$(challengeId)).data.creatorUid == request.auth.uid);
+      }
+    }
+
+    match /challengeCodes/{code} {
+      allow get: if isSignedIn() && isValidChallengeCode(code);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidChallengeCode(code) &&
+                       incoming().keys().hasAll([
+                         'code', 'challengeId', 'creatorUid', 'title', 'createdAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'code', 'challengeId', 'creatorUid', 'title', 'createdAt'
+                       ]) &&
+                       isValidChallengeCodeDoc(incoming(), code);
+
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidChallengeCode(code) && existing().creatorUid == request.auth.uid;
+    }
+
+    match /studyChats/{chatId} {
+      allow get: if isChatMemberPath(chatId) &&
+                    (resource == null || request.auth.uid in resource.data.participantUids);
+      allow list: if isSignedIn() &&
+                     request.auth.uid in resource.data.participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(chatId) &&
+                       incoming().keys().hasAll([
+                         'participantUids', 'lastMessageText', 'lastSenderUid', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'participantUids', 'lastMessageText', 'lastSenderUid', 'createdAt', 'updatedAt'
+                       ]) &&
+                       request.auth.uid in incoming().participantUids &&
+                       isValidStudyChat(incoming(), chatId);
+
+      allow update: if isSignedIn() &&
+                       isValidId(chatId) &&
+                       request.auth.uid in existing().participantUids &&
+                       isValidStudyChat(incoming(), chatId) &&
+                       incoming().participantUids == existing().participantUids &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'lastMessageText', 'lastSenderUid', 'updatedAt'
+                       ]);
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow get: if isChatMemberPath(chatId) &&
+                      isValidId(messageId) &&
+                      request.auth.uid in resource.data.participantUids;
+        allow list: if isChatMemberPath(chatId) &&
+                       request.auth.uid in resource.data.participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(chatId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll([
+                           'chatId', 'participantUids', 'senderUid',
+                           'senderDisplayName', 'text', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'chatId', 'participantUids', 'senderUid',
+                           'senderDisplayName', 'text', 'createdAt'
+                         ]) &&
+                         isValidStudyChatMessage(incoming(), chatId);
+
+        allow update: if false;
+        allow delete: if isSignedIn() &&
+                         isValidId(chatId) &&
+                         isValidId(messageId) &&
+                         existing().senderUid == request.auth.uid;
+      }
+    }
+
+    match /appConfig/{configId} {
+      allow get: if isSignedIn() && configId == 'live';
+      allow list: if false;
+
+      allow create, update: if isAdmin() &&
+                               configId == 'live' &&
+                               incoming().keys().hasAll([
+                                 'configVersion', 'liveTagline', 'announcementTitle',
+                                 'announcementBody', 'announcementActive', 'updateNoticeLabel',
+                                 'defaultFocusMinutes', 'gemMultiplierPercent', 'socialEnabled',
+                                 'launcherEnabled', 'ambientDrawerEnabled', 'maintenanceBannerEnabled',
+                                 'updatedAt'
+                               ]) &&
+                               incoming().keys().hasOnly([
+                                 'configVersion', 'liveTagline', 'announcementTitle',
+                                 'announcementBody', 'announcementActive', 'updateNoticeLabel',
+                                 'defaultFocusMinutes', 'gemMultiplierPercent', 'socialEnabled',
+                                 'launcherEnabled', 'ambientDrawerEnabled', 'maintenanceBannerEnabled',
+                                 'updatedAt'
+                               ]) &&
+                               isValidAppLiveConfig(incoming());
+
+      allow delete: if false;
+    }
+
+    match /adminNotices/{noticeId} {
+      allow get: if isSignedIn() &&
+                    isValidId(noticeId) &&
+                    (isAdmin() ||
+                     'ALL' in resource.data.audienceUids ||
+                     request.auth.uid in resource.data.audienceUids);
+
+      allow list: if isSignedIn() &&
+                     request.query.limit <= 30 &&
+                     (isAdmin() ||
+                      'ALL' in resource.data.audienceUids ||
+                      request.auth.uid in resource.data.audienceUids);
+
+      allow create: if isAdmin() &&
+                       isValidId(noticeId) &&
+                       incoming().keys().hasAll([
+                         'audienceUids', 'targetLabel', 'title', 'body', 'kind', 'createdAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'audienceUids', 'targetLabel', 'title', 'body', 'kind', 'createdAt'
+                       ]) &&
+                       isValidAdminNotice(incoming());
+
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(noticeId);
+    }
+
+    match /accountModeration/{userId} {
+      allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow list: if isAdmin();
+
+      allow create, update: if isAdmin() &&
+                               isValidId(userId) &&
+                               incoming().keys().hasAll([
+                                 'userId', 'status', 'reason', 'updatedAt'
+                               ]) &&
+                               incoming().keys().hasOnly([
+                                 'userId', 'status', 'reason', 'updatedAt'
+                               ]) &&
+                               isValidAccountModeration(incoming(), userId);
+
+      allow delete: if isAdmin() && isValidId(userId);
     }
   }
 }

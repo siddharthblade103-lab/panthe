@@ -18,7 +18,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
@@ -49,11 +52,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.Diamond
 import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Storefront
@@ -73,6 +78,7 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -80,6 +86,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -88,6 +95,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AmbientLightingStyle
 import com.example.service.TactileSoundEngine
 import com.example.ui.theme.LocalTryAgainPalette
 import com.example.ui.theme.NunitoDisplayFamily
@@ -107,6 +115,10 @@ val LocalTactileSound = compositionLocalOf<TactileSoundEngine?> { null }
 @Composable
 fun MetamorphosisBackdrop(
     modifier: Modifier = Modifier,
+    lightingStyle: AmbientLightingStyle = AmbientLightingStyle.AURORA_GLASS,
+    lightingIntensity: Float = 0.72f,
+    edgeGlowEnabled: Boolean = true,
+    isFocusActive: Boolean = false,
     content: @Composable BoxScope.() -> Unit
 ) {
     val palette = LocalTryAgainPalette.current
@@ -115,11 +127,45 @@ fun MetamorphosisBackdrop(
         initialValue = 0f,
         targetValue = (2.0 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 16000, easing = LinearEasing),
+            animation = tween(durationMillis = if (isFocusActive) 12500 else 16000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "orbDrift"
     )
+    val edgeSweepAngle by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = (2.0 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (isFocusActive) 6400 else 9500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "edgeSweep"
+    )
+
+    val (orbPrimary, orbCyan, orbViolet, orbAccent) = when (lightingStyle) {
+        AmbientLightingStyle.AURORA_GLASS -> listOf(
+            palette.primary, palette.prismCyan, palette.prismViolet, palette.secondary
+        )
+        AmbientLightingStyle.GALAXY_NEBULA -> listOf(
+            Color(0xFF4F46E5), Color(0xFF38BDF8), Color(0xFFA855F7), Color(0xFF2563EB)
+        )
+        AmbientLightingStyle.SUNSET_AMBER -> listOf(
+            Color(0xFFF59E0B), Color(0xFFFB7185), Color(0xFFF97316), Color(0xFFFBBF24)
+        )
+        AmbientLightingStyle.MIDNIGHT_PULSE -> listOf(
+            Color(0xFF06B6D4), Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF10B981)
+        )
+        AmbientLightingStyle.CALM_MINIMAL -> listOf(
+            palette.primary.copy(alpha = 0.55f),
+            palette.prismCyan.copy(alpha = 0.45f),
+            palette.glassBorderSubtle,
+            palette.secondary.copy(alpha = 0.45f)
+        )
+    }
+
+    val clampedIntensity = lightingIntensity.coerceIn(0.15f, 1f)
+    val styleGain = if (lightingStyle == AmbientLightingStyle.CALM_MINIMAL) 0.42f else 1.0f
+    val totalGain = clampedIntensity * styleGain * (if (isFocusActive) 1.15f else 1.0f)
 
     Box(
         modifier = modifier
@@ -129,70 +175,157 @@ fun MetamorphosisBackdrop(
                     colors = listOf(palette.canvasTop, palette.canvasBottom)
                 )
             )
+            // Cache static crystalline micro-lattice once per size/theme for zero per-frame loop overhead
+            .drawWithCache {
+                val step = 32.dp.toPx()
+                val radius = 0.85.dp.toPx()
+                val cols = (size.width / step).toInt() + 1
+                val rows = (size.height / step).toInt() + 1
+                val dotColor = palette.textureDotColor
+                val points = buildList(cols * rows) {
+                    for (r in 0..rows) {
+                        val y = r * step
+                        val xOffset = if (r % 2 == 0) 0f else step * 0.5f
+                        for (c in 0..cols) {
+                            add(Offset(c * step + xOffset, y))
+                        }
+                    }
+                }
+                onDrawBehind {
+                    points.forEach { pt ->
+                        drawCircle(color = dotColor, radius = radius, center = pt)
+                    }
+                }
+            }
             .drawBehind {
-                val primaryAlpha = if (palette.isDark) 0.26f else 0.20f
-                val secondaryAlpha = if (palette.isDark) 0.20f else 0.15f
+                val primaryAlpha = ((if (palette.isDark) 0.34f else 0.25f) * totalGain).coerceIn(0.04f, 0.48f)
+                val secondaryAlpha = ((if (palette.isDark) 0.26f else 0.19f) * totalGain).coerceIn(0.03f, 0.38f)
 
-                // Slowly drifting top-left emerald/primary sunlit aurora bloom
+                // Slowly drifting top-left primary sunlit aurora bloom
                 val orb1 = Offset(
-                    x = size.width * (0.24f + 0.16f * cos(driftPhase)),
+                    x = size.width * (0.22f + 0.16f * cos(driftPhase)),
                     y = size.height * (0.10f + 0.06f * sin(driftPhase))
                 )
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(palette.primary.copy(alpha = primaryAlpha), Color.Transparent),
+                        colors = listOf(orbPrimary.copy(alpha = primaryAlpha), Color.Transparent),
                         center = orb1,
-                        radius = size.width * 0.82f
+                        radius = size.width * 0.86f
                     ),
-                    radius = size.width * 0.82f,
+                    radius = size.width * 0.86f,
                     center = orb1
                 )
 
-                // Slowly drifting upper-right sapphire/gem luminous mist behind the hero study card
+                // Slowly drifting upper-right prismatic caustic
                 val orb2 = Offset(
-                    x = size.width * (0.82f + 0.12f * sin(driftPhase * 0.85f)),
-                    y = size.height * (0.34f + 0.08f * cos(driftPhase * 0.85f))
+                    x = size.width * (0.84f + 0.12f * sin(driftPhase * 0.85f)),
+                    y = size.height * (0.30f + 0.08f * cos(driftPhase * 0.85f))
                 )
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(palette.gemColor.copy(alpha = secondaryAlpha), Color.Transparent),
+                        colors = listOf(
+                            orbCyan.copy(alpha = secondaryAlpha),
+                            orbViolet.copy(alpha = secondaryAlpha * 0.50f),
+                            Color.Transparent
+                        ),
                         center = orb2,
-                        radius = size.width * 0.72f
+                        radius = size.width * 0.76f
                     ),
-                    radius = size.width * 0.72f,
+                    radius = size.width * 0.76f,
                     center = orb2
+                )
+
+                // Delicate lavender/rose refraction pool mid-left
+                val orbPrism = Offset(
+                    x = size.width * (0.14f + 0.10f * sin(driftPhase * 0.65f + 2.1f)),
+                    y = size.height * (0.58f + 0.07f * cos(driftPhase * 0.65f))
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            orbViolet.copy(alpha = secondaryAlpha * 0.78f),
+                            orbAccent.copy(alpha = secondaryAlpha * 0.34f),
+                            Color.Transparent
+                        ),
+                        center = orbPrism,
+                        radius = size.width * 0.66f
+                    ),
+                    radius = size.width * 0.66f,
+                    center = orbPrism
                 )
 
                 // Soft warm glow near bottom dock
                 val orb3 = Offset(
-                    x = size.width * (0.32f + 0.12f * sin(driftPhase + 1.4f)),
-                    y = size.height * 0.86f
+                    x = size.width * (0.64f + 0.14f * sin(driftPhase + 1.4f)),
+                    y = size.height * 0.88f
                 )
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(palette.secondary.copy(alpha = secondaryAlpha * 0.85f), Color.Transparent),
+                        colors = listOf(orbAccent.copy(alpha = secondaryAlpha * 0.88f), Color.Transparent),
                         center = orb3,
-                        radius = size.width * 0.65f
+                        radius = size.width * 0.70f
                     ),
-                    radius = size.width * 0.65f,
+                    radius = size.width * 0.70f,
                     center = orb3
                 )
 
-                // Ultra-fine morphism crystalline micro-grain dot texture
-                val step = 30.dp.toPx()
-                val radius = 0.9.dp.toPx()
-                val cols = (size.width / step).toInt() + 1
-                val rows = (size.height / step).toInt() + 1
-                for (r in 0..rows) {
-                    val y = r * step
-                    val xOffset = if (r % 2 == 0) 0f else step * 0.5f
-                    for (c in 0..cols) {
+                // Subtle diagonal liquid-crystal optical caustic veil
+                val bandShift = 0.12f * sin(driftPhase)
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = (if (palette.isDark) 0.04f else 0.18f) * clampedIntensity),
+                            orbCyan.copy(alpha = (if (palette.isDark) 0.055f else 0.09f) * totalGain),
+                            Color.Transparent
+                        ),
+                        start = Offset(size.width * (0.05f + bandShift), 0f),
+                        end = Offset(size.width * (0.95f + bandShift), size.height * 0.75f)
+                    )
+                )
+
+                // 5 subtle drifting optical bokeh light motes for living liquid-glass depth
+                if (lightingStyle != AmbientLightingStyle.CALM_MINIMAL) {
+                    val moteAlpha = (if (palette.isDark) 0.18f else 0.30f) * clampedIntensity
+                    for (i in 0 until 5) {
+                        val angle = driftPhase * (0.7f + i * 0.12f) + i * 1.3f
+                        val mx = size.width * (0.15f + (i * 0.18f) + 0.04f * cos(angle))
+                        val my = size.height * (0.16f + ((i * 0.19f) % 0.72f) + 0.03f * sin(angle))
+                        val mr = (3.5f + (i % 3) * 2.2f).dp.toPx()
                         drawCircle(
-                            color = palette.textureDotColor,
-                            radius = radius,
-                            center = Offset(c * step + xOffset, y)
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color.White.copy(alpha = moteAlpha), Color.Transparent),
+                                center = Offset(mx, my),
+                                radius = mr * 2.4f
+                            ),
+                            radius = mr * 2.4f,
+                            center = Offset(mx, my)
                         )
                     }
+                }
+            }
+            .drawWithContent {
+                drawContent()
+                // Galaxy-style ambient gradient Edge Lighting perimeter glow
+                if (edgeGlowEnabled && lightingStyle != AmbientLightingStyle.CALM_MINIMAL) {
+                    val edgeAlpha = ((if (isFocusActive) 0.42f else 0.24f) * clampedIntensity).coerceIn(0.06f, 0.52f)
+                    val sx = size.width * (0.5f + 0.5f * cos(edgeSweepAngle))
+                    val sy = size.height * (0.5f + 0.5f * sin(edgeSweepAngle))
+                    val edgeBrush = Brush.linearGradient(
+                        colors = listOf(
+                            orbPrimary.copy(alpha = edgeAlpha),
+                            orbCyan.copy(alpha = edgeAlpha * 0.85f),
+                            orbViolet.copy(alpha = edgeAlpha * 0.75f),
+                            orbAccent.copy(alpha = edgeAlpha * 0.60f),
+                            orbPrimary.copy(alpha = edgeAlpha)
+                        ),
+                        start = Offset(sx, 0f),
+                        end = Offset(size.width - sx, sy)
+                    )
+                    drawRect(
+                        brush = edgeBrush,
+                        style = Stroke(width = if (isFocusActive) 4.dp.toPx() else 2.5.dp.toPx())
+                    )
                 }
             },
         content = content
@@ -200,7 +333,7 @@ fun MetamorphosisBackdrop(
 }
 
 /**
- * Choreographed staggered spring entrance for cards so every screen feels silky and alive.
+ * Choreographed staggered spring entrance tuned for crisp 60/120fps fluidity without scroll lag.
  */
 @Composable
 fun StaggeredEntrance(
@@ -209,22 +342,22 @@ fun StaggeredEntrance(
     content: @Composable () -> Unit
 ) {
     val alpha = remember { Animatable(0f) }
-    val offsetY = remember { Animatable(24f) }
-    val scale = remember { Animatable(0.97f) }
+    val offsetY = remember { Animatable(14f) }
+    val scale = remember { Animatable(0.985f) }
 
     LaunchedEffect(Unit) {
-        delay((index * 55L).coerceAtMost(320L))
-        launch { alpha.animateTo(1f, tween(280, easing = FastOutSlowInEasing)) }
+        delay((index * 32L).coerceAtMost(150L))
+        launch { alpha.animateTo(1f, tween(210, easing = FastOutSlowInEasing)) }
         launch {
             offsetY.animateTo(
                 0f,
-                spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow)
+                spring(dampingRatio = 0.84f, stiffness = Spring.StiffnessMedium)
             )
         }
         launch {
             scale.animateTo(
                 1f,
-                spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow)
+                spring(dampingRatio = 0.84f, stiffness = Spring.StiffnessMedium)
             )
         }
     }
@@ -242,9 +375,9 @@ fun StaggeredEntrance(
 }
 
 /**
- * Tactile Apple liquid-glass + soft morphism card with directional top-left specular bevel,
- * frosted inner sheen, optional real blurred backdrop frost layer (`frostedBlur = true`),
- * optional animated subtle glass shimmer, and soft ambient shadow depth.
+ * Tactile Liquid Crystal Glass surface with prismatic optical-dispersion borders,
+ * hardware-blurred frosted refraction core, dual specular quartz bevel highlights,
+ * optional animated refraction shimmer, and soft ambient shadow depth.
  */
 @Composable
 fun MorphismSurface(
@@ -253,8 +386,8 @@ fun MorphismSurface(
     elevated: Boolean = false,
     accentTint: Color? = null,
     shimmer: Boolean = false,
-    frostedBlur: Boolean = false,
-    blurRadius: Dp = 22.dp,
+    frostedBlur: Boolean = true,
+    blurRadius: Dp = 18.dp,
     contentPadding: PaddingValues = PaddingValues(18.dp),
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -262,9 +395,9 @@ fun MorphismSurface(
     val shape = RoundedCornerShape(cornerRadius)
     val baseFill = if (frostedBlur) {
         if (palette.isDark) {
-            palette.glassFillElevated.copy(alpha = 0.44f)
+            if (elevated) palette.glassFillElevated.copy(alpha = 0.72f) else palette.glassFill.copy(alpha = 0.62f)
         } else {
-            Color.White.copy(alpha = 0.54f)
+            if (elevated) Color.White.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.72f)
         }
     } else if (elevated) {
         palette.glassFillElevated
@@ -278,14 +411,15 @@ fun MorphismSurface(
             initialValue = -0.6f,
             targetValue = 1.8f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 4200, easing = FastOutSlowInEasing),
+                animation = tween(durationMillis = 3800, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "shimmerX"
         ).value
     } else -2f
 
-    val frostDrift = if (frostedBlur) {
+    // Animate caustic drift on elevated/shimmer hero panels; keep standard cards crisp & zero-overhead
+    val frostDrift = if (frostedBlur && (elevated || shimmer)) {
         val infinite = rememberInfiniteTransition(label = "frostedRefraction")
         infinite.animateFloat(
             initialValue = 0f,
@@ -296,32 +430,43 @@ fun MorphismSurface(
             ),
             label = "frostPhase"
         ).value
-    } else 0f
+    } else 0.7f
 
-    val surfaceBrush = remember(baseFill, accentTint, palette.isDark, frostedBlur) {
+    val surfaceBrush = remember(baseFill, accentTint, palette.isDark, frostedBlur, palette.prismCyan, palette.prismViolet) {
         val topTint = if (frostedBlur) {
-            Color.White.copy(alpha = if (palette.isDark) 0.14f else 0.46f)
+            Color.White.copy(alpha = if (palette.isDark) 0.15f else 0.52f)
         } else {
             accentTint?.copy(alpha = if (palette.isDark) 0.16f else 0.08f)
                 ?: Color.White.copy(alpha = if (palette.isDark) 0.07f else 0.50f)
         }
+        val midTint = palette.prismCyan.copy(alpha = if (palette.isDark) 0.04f else 0.045f)
         val bottomTint = if (frostedBlur) {
-            (accentTint ?: palette.primary).copy(alpha = if (palette.isDark) 0.08f else 0.06f)
+            (accentTint ?: palette.prismViolet).copy(alpha = if (palette.isDark) 0.10f else 0.065f)
         } else {
             Color.Transparent
         }
         Brush.linearGradient(
-            colors = listOf(topTint, Color.Transparent, bottomTint)
+            colors = listOf(topTint, midTint, bottomTint)
         )
     }
 
-    val borderBrush = remember(palette.glassBorderHighlight, palette.glassBorderSubtle, accentTint, frostedBlur, palette.isDark) {
+    // Prismatic Liquid Crystal optical dispersion border
+    val borderBrush = remember(
+        palette.glassBorderHighlight,
+        palette.glassBorderSubtle,
+        palette.prismCyan,
+        palette.prismViolet,
+        accentTint,
+        frostedBlur,
+        palette.isDark
+    ) {
         Brush.linearGradient(
             colors = if (frostedBlur) {
                 listOf(
-                    Color.White.copy(alpha = if (palette.isDark) 0.42f else 0.92f),
-                    (accentTint ?: palette.primary).copy(alpha = if (palette.isDark) 0.24f else 0.20f),
-                    Color.White.copy(alpha = if (palette.isDark) 0.16f else 0.58f)
+                    Color.White.copy(alpha = if (palette.isDark) 0.50f else 0.96f),
+                    palette.prismCyan.copy(alpha = if (palette.isDark) 0.30f else 0.34f),
+                    (accentTint ?: palette.prismViolet).copy(alpha = if (palette.isDark) 0.28f else 0.28f),
+                    Color.White.copy(alpha = if (palette.isDark) 0.22f else 0.72f)
                 )
             } else {
                 listOf(
@@ -343,63 +488,79 @@ fun MorphismSurface(
             )
             .clip(shape)
     ) {
-        // Layer 1: Dedicated hardware-blurred background refraction plane (strictly behind crisp content)
+        // Layer 1: GPU-friendly optical liquid-crystal refraction plane (reserves offscreen hardware blur for elevated shimmer hero panels for silky 120fps scrolling)
         if (frostedBlur) {
             val tintA = accentTint ?: palette.primary
-            val tintB = palette.gemColor
+            val tintB = palette.prismCyan
+            val tintC = palette.prismViolet
+            val useHardwareBlur = elevated && shimmer
             Canvas(
                 modifier = Modifier
                     .matchParentSize()
-                    .blur(radius = blurRadius, edgeTreatment = BlurredEdgeTreatment.Rectangle)
+                    .then(
+                        if (useHardwareBlur) {
+                            Modifier.blur(radius = blurRadius, edgeTreatment = BlurredEdgeTreatment.Rectangle)
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
-                val glowAlpha = if (palette.isDark) 0.30f else 0.24f
-                val secondaryGlowAlpha = if (palette.isDark) 0.22f else 0.18f
+                val glowAlpha = if (palette.isDark) 0.28f else 0.22f
+                val secondaryGlowAlpha = if (palette.isDark) 0.22f else 0.16f
 
                 val bloomA = Offset(
-                    x = size.width * (0.22f + 0.10f * cos(frostDrift)),
-                    y = size.height * (0.18f + 0.08f * sin(frostDrift))
+                    x = size.width * (0.20f + 0.09f * cos(frostDrift)),
+                    y = size.height * (0.16f + 0.07f * sin(frostDrift))
                 )
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(tintA.copy(alpha = glowAlpha), Color.Transparent),
+                        colors = listOf(
+                            tintA.copy(alpha = glowAlpha),
+                            tintA.copy(alpha = glowAlpha * 0.36f),
+                            Color.Transparent
+                        ),
                         center = bloomA,
-                        radius = size.width * 0.68f
+                        radius = size.width * 0.72f
                     ),
-                    radius = size.width * 0.68f,
+                    radius = size.width * 0.72f,
                     center = bloomA
                 )
 
                 val bloomB = Offset(
-                    x = size.width * (0.82f + 0.10f * sin(frostDrift * 0.9f)),
-                    y = size.height * (0.76f + 0.08f * cos(frostDrift * 0.9f))
+                    x = size.width * (0.84f + 0.09f * sin(frostDrift * 0.9f)),
+                    y = size.height * (0.76f + 0.07f * cos(frostDrift * 0.9f))
                 )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(tintB.copy(alpha = secondaryGlowAlpha), Color.Transparent),
-                        center = bloomB,
-                        radius = size.width * 0.62f
-                    ),
-                    radius = size.width * 0.62f,
-                    center = bloomB
-                )
-
-                // Soft luminous center frost haze
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = if (palette.isDark) 0.12f else 0.55f),
+                            tintB.copy(alpha = secondaryGlowAlpha),
+                            tintC.copy(alpha = secondaryGlowAlpha * 0.48f),
                             Color.Transparent
                         ),
-                        center = Offset(size.width * 0.5f, size.height * 0.42f),
-                        radius = size.width * 0.60f
+                        center = bloomB,
+                        radius = size.width * 0.68f
                     ),
-                    radius = size.width * 0.60f,
-                    center = Offset(size.width * 0.5f, size.height * 0.42f)
+                    radius = size.width * 0.68f,
+                    center = bloomB
+                )
+
+                // Soft luminous center crystal quartz haze
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = if (palette.isDark) 0.12f else 0.56f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.46f, size.height * 0.32f),
+                        radius = size.width * 0.62f
+                    ),
+                    radius = size.width * 0.62f,
+                    center = Offset(size.width * 0.46f, size.height * 0.32f)
                 )
             }
         }
 
-        // Layer 2: Semi-transparent frosted glass glaze + specular highlights + crisp content
+        // Layer 2: Semi-transparent liquid-crystal glaze + dual specular bevels + crisp content
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -407,18 +568,33 @@ fun MorphismSurface(
                 .background(surfaceBrush)
                 .drawWithContent {
                     drawContent()
-                    // Specular top inner edge highlight for crisp liquid-glass curvature
+                    // Specular top inner edge highlight for liquid-crystal curvature
                     drawLine(
                         brush = Brush.horizontalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.White.copy(alpha = if (palette.isDark) 0.24f else 0.85f),
+                                Color.White.copy(alpha = if (palette.isDark) 0.34f else 0.92f),
+                                palette.prismCyan.copy(alpha = if (palette.isDark) 0.22f else 0.42f),
                                 Color.Transparent
                             )
                         ),
-                        start = Offset(size.width * 0.10f, 1.5.dp.toPx()),
-                        end = Offset(size.width * 0.90f, 1.5.dp.toPx()),
+                        start = Offset(size.width * 0.08f, 1.4.dp.toPx()),
+                        end = Offset(size.width * 0.92f, 1.4.dp.toPx()),
                         strokeWidth = 1.5.dp.toPx()
+                    )
+                    // Subtle lower-right optical refraction glint
+                    drawLine(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                palette.prismViolet.copy(alpha = if (palette.isDark) 0.18f else 0.26f),
+                                Color.White.copy(alpha = if (palette.isDark) 0.16f else 0.55f),
+                                Color.Transparent
+                            )
+                        ),
+                        start = Offset(size.width * 0.22f, size.height - 1.4.dp.toPx()),
+                        end = Offset(size.width * 0.88f, size.height - 1.4.dp.toPx()),
+                        strokeWidth = 1.1.dp.toPx()
                     )
                     if (shimmer) {
                         val bandStart = size.width * shimmerOffset
@@ -426,11 +602,13 @@ fun MorphismSurface(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    Color.White.copy(alpha = if (palette.isDark) 0.07f else 0.24f),
+                                    palette.prismCyan.copy(alpha = if (palette.isDark) 0.08f else 0.14f),
+                                    Color.White.copy(alpha = if (palette.isDark) 0.10f else 0.32f),
+                                    palette.prismViolet.copy(alpha = if (palette.isDark) 0.06f else 0.12f),
                                     Color.Transparent
                                 ),
-                                start = Offset(bandStart - size.width * 0.25f, 0f),
-                                end = Offset(bandStart + size.width * 0.25f, size.height)
+                                start = Offset(bandStart - size.width * 0.28f, 0f),
+                                end = Offset(bandStart + size.width * 0.28f, size.height)
                             )
                         )
                     }
@@ -462,10 +640,12 @@ fun MorphismActionButton(
     enabled: Boolean = true,
     height: Dp = 54.dp,
     cornerRadius: Dp = 18.dp,
+    hapticEvent: SystemHapticEvent = SystemHapticEvent.BUTTON_TAP,
     testTag: String? = null
 ) {
     val palette = LocalTryAgainPalette.current
     val tactile = LocalTactileSound.current
+    val systemHaptics = LocalSystemHaptics.current
     val bgColor = containerColor ?: palette.primary
     val shadowLipColor = lipColor ?: palette.primaryLip
 
@@ -507,6 +687,7 @@ fun MorphismActionButton(
                 indication = null,
                 enabled = enabled
             ) {
+                systemHaptics.perform(hapticEvent)
                 tactile?.playTap()
                 onClick()
             }
@@ -589,6 +770,7 @@ fun SlidingGlassSegmentedBar(
 ) {
     val palette = LocalTryAgainPalette.current
     val tactile = LocalTactileSound.current
+    val systemHaptics = LocalSystemHaptics.current
     val count = labels.size.coerceAtLeast(1)
     val safeIndex = selectedIndex.coerceIn(0, count - 1)
 
@@ -643,6 +825,7 @@ fun SlidingGlassSegmentedBar(
                             enabled = enabled
                         ) {
                             if (!isSelected) {
+                                systemHaptics.tick()
                                 tactile?.playTap()
                                 onSelect(idx)
                             }
@@ -678,6 +861,7 @@ fun MorphismChip(
 ) {
     val palette = LocalTryAgainPalette.current
     val tactile = LocalTactileSound.current
+    val systemHaptics = LocalSystemHaptics.current
     val activeColor = selectedColor ?: palette.primary
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -711,6 +895,7 @@ fun MorphismChip(
             }
             .clip(RoundedCornerShape(50))
             .clickable(interactionSource = interactionSource, indication = null) {
+                systemHaptics.toggle(on = !selected)
                 tactile?.playToggle(on = !selected)
                 onClick()
             },
@@ -776,7 +961,7 @@ fun AnimatedCounterText(
 }
 
 /**
- * Metamorphosis morphing container for smooth state/tab transitions.
+ * Metamorphosis morphing container for silky spring glass transitions.
  */
 @Composable
 fun <T> MetamorphosisContainer(
@@ -789,16 +974,155 @@ fun <T> MetamorphosisContainer(
         targetState = targetState,
         modifier = modifier,
         transitionSpec = {
-            (fadeIn(tween(240)) + scaleIn(
-                initialScale = 0.97f,
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)
+            (fadeIn(tween(260, easing = FastOutSlowInEasing)) + scaleIn(
+                initialScale = 0.96f,
+                animationSpec = spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessMediumLow)
             ))
-                .togetherWith(fadeOut(tween(160)))
+                .togetherWith(
+                    fadeOut(tween(170, easing = FastOutSlowInEasing)) + scaleOut(
+                        targetScale = 0.98f,
+                        animationSpec = tween(170)
+                    )
+                )
                 .using(SizeTransform(clip = false))
         },
         label = label
     ) { state ->
         content(state)
+    }
+}
+
+/**
+ * Directional liquid-glass screen transition that glides smoothly along the tab axis
+ * with spring scale and optical fade so navigating across tabs feels fluid and effortless.
+ */
+@Composable
+fun TryAgainTabTransition(
+    selectedTab: TryAgainTab,
+    modifier: Modifier = Modifier,
+    content: @Composable (TryAgainTab) -> Unit
+) {
+    AnimatedContent(
+        targetState = selectedTab,
+        modifier = modifier,
+        transitionSpec = {
+            val movingForward = targetState.ordinal >= initialState.ordinal
+            val slideDistance = { width: Int -> (width * 0.055f).toInt() }
+            val enter = slideInHorizontally(
+                animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMedium),
+                initialOffsetX = { if (movingForward) slideDistance(it) else -slideDistance(it) }
+            ) + fadeIn(tween(220, easing = FastOutSlowInEasing)) + scaleIn(
+                initialScale = 0.982f,
+                animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMedium)
+            )
+            val exit = slideOutHorizontally(
+                animationSpec = tween(150, easing = FastOutSlowInEasing),
+                targetOffsetX = { if (movingForward) -slideDistance(it) else slideDistance(it) }
+            ) + fadeOut(tween(140, easing = FastOutSlowInEasing)) + scaleOut(
+                targetScale = 0.99f,
+                animationSpec = tween(140)
+            )
+            enter.togetherWith(exit).using(SizeTransform(clip = false))
+        },
+        label = "liquidTabTransition"
+    ) { tab ->
+        content(tab)
+    }
+}
+
+/**
+ * Subtle animated liquid-crystal glowing status dot for real-time sync and live presence.
+ * - Softly breathes with a radial crystal glow while active.
+ * - Emits a delicate expanding sync halo ring whenever `isSyncing` is true OR whenever
+ *   `syncPulseKey` increments on a real-time Firestore snapshot update.
+ */
+@Composable
+fun LiquidCrystalSyncDot(
+    color: Color,
+    isLivePulse: Boolean,
+    isSyncing: Boolean,
+    syncPulseKey: Int = 0,
+    dotSize: Dp = 8.dp,
+    modifier: Modifier = Modifier
+) {
+    val infinite = rememberInfiniteTransition(label = "crystalSyncDot")
+    val breathe by infinite.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (isSyncing) 900 else 1850, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dotBreathe"
+    )
+    val continuousWave by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (isSyncing) 1150 else 2300, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "dotWave"
+    )
+    val snapshotRipple = remember { Animatable(1f) }
+    LaunchedEffect(syncPulseKey) {
+        if (syncPulseKey > 0) {
+            snapshotRipple.snapTo(0f)
+            snapshotRipple.animateTo(1f, tween(durationMillis = 820, easing = FastOutSlowInEasing))
+        }
+    }
+
+    val canvasSize = dotSize * 2.4f
+    Canvas(modifier = modifier.size(canvasSize)) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val coreRadius = dotSize.toPx() / 2f
+
+        // Delicate expanding ring on active sync or live focus state
+        if (isLivePulse || isSyncing) {
+            val ringRadius = coreRadius * (1.05f + 1.35f * continuousWave)
+            val ringAlpha = (1f - continuousWave) * if (isSyncing) 0.60f else 0.36f
+            drawCircle(
+                color = color.copy(alpha = ringAlpha),
+                radius = ringRadius,
+                center = center,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.4.dp.toPx())
+            )
+        }
+
+        // Crisp one-shot real-time Firestore update flare whenever a fresh snapshot lands
+        if (snapshotRipple.value < 0.99f) {
+            val p = snapshotRipple.value
+            drawCircle(
+                color = Color.White.copy(alpha = (1f - p) * 0.72f),
+                radius = coreRadius * (1.1f + 1.55f * p),
+                center = center,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6.dp.toPx())
+            )
+        }
+
+        // Soft glowing radial aura
+        val glowAlpha = if (isLivePulse || isSyncing) 0.44f * breathe else 0.22f
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(color.copy(alpha = glowAlpha), Color.Transparent),
+                center = center,
+                radius = coreRadius * 2.15f
+            ),
+            radius = coreRadius * 2.15f,
+            center = center
+        )
+
+        // Luminous liquid-crystal core dot + tiny specular pinpoint
+        drawCircle(
+            color = color,
+            radius = coreRadius * (if (isSyncing) 0.92f + 0.14f * breathe else 1f),
+            center = center
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.78f),
+            radius = coreRadius * 0.36f,
+            center = Offset(center.x - coreRadius * 0.24f, center.y - coreRadius * 0.24f)
+        )
     }
 }
 
@@ -897,6 +1221,7 @@ fun GemPillBadge(
 ) {
     val palette = LocalTryAgainPalette.current
     val tactile = LocalTactileSound.current
+    val systemHaptics = LocalSystemHaptics.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -915,6 +1240,7 @@ fun GemPillBadge(
             .then(
                 if (onClick != null) {
                     Modifier.clickable(interactionSource = interactionSource, indication = null) {
+                        systemHaptics.buttonTap()
                         tactile?.playTap()
                         onClick()
                     }
@@ -952,32 +1278,49 @@ enum class TryAgainTab(
     val testTag: String
 ) {
     FOCUS("Focus", Icons.Rounded.Timer, Icons.Outlined.Timer, "nav_tab_focus"),
-    JOURNEY("Path", Icons.Rounded.Explore, Icons.Outlined.Explore, "nav_tab_journey"),
+    SOCIAL("Social", Icons.Rounded.Groups, Icons.Outlined.Groups, "nav_tab_social"),
     SHOP("Shop", Icons.Rounded.Storefront, Icons.Outlined.Storefront, "nav_tab_shop"),
     PROFILE("Profile", Icons.Rounded.Person, Icons.Outlined.Person, "nav_tab_profile")
 }
 
 /**
- * Apple liquid-glass floating bottom dock with a spring-gliding active glass capsule
- * and bouncy icon choreography, strictly respecting system navigation bar insets.
+ * Liquid Crystal floating bottom dock with a prismatic refractive hairline border,
+ * spring-gliding active crystal capsule, and bouncy icon choreography,
+ * strictly respecting system navigation bar insets.
  */
 @Composable
 fun TryAgainFloatingDock(
     selectedTab: TryAgainTab,
     onSelectTab: (TryAgainTab) -> Unit,
+    showSocialTab: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalTryAgainPalette.current
     val tactile = LocalTactileSound.current
+    val systemHaptics = LocalSystemHaptics.current
     val dockShape: Shape = RoundedCornerShape(30.dp)
-    val tabs = TryAgainTab.entries
+    val tabs = remember(showSocialTab) {
+        if (showSocialTab) TryAgainTab.entries.toList()
+        else TryAgainTab.entries.filter { it != TryAgainTab.SOCIAL }
+    }
     val selectedIdx = tabs.indexOf(selectedTab).coerceAtLeast(0)
+
+    val prismaticDockBorder = remember(palette.isDark, palette.prismCyan, palette.prismViolet, palette.navDockBorder) {
+        Brush.linearGradient(
+            colors = listOf(
+                Color.White.copy(alpha = if (palette.isDark) 0.45f else 0.96f),
+                palette.prismCyan.copy(alpha = if (palette.isDark) 0.28f else 0.38f),
+                palette.prismViolet.copy(alpha = if (palette.isDark) 0.24f else 0.28f),
+                palette.navDockBorder
+            )
+        )
+    }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Surface(
@@ -991,12 +1334,28 @@ fun TryAgainFloatingDock(
                 ),
             shape = dockShape,
             color = palette.navDockFill,
-            border = BorderStroke(1.2.dp, palette.navDockBorder)
+            border = BorderStroke(1.3.dp, prismaticDockBorder)
         ) {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 7.dp)
+                    .drawBehind {
+                        // Top specular crystal edge glint
+                        drawLine(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = if (palette.isDark) 0.28f else 0.88f),
+                                    palette.prismCyan.copy(alpha = if (palette.isDark) 0.16f else 0.34f),
+                                    Color.Transparent
+                                )
+                            ),
+                            start = Offset(size.width * 0.10f, 1.5.dp.toPx()),
+                            end = Offset(size.width * 0.90f, 1.5.dp.toPx()),
+                            strokeWidth = 1.3.dp.toPx()
+                        )
+                    }
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
             ) {
                 val tabWidth = maxWidth / tabs.size
                 val pillOffset by animateDpAsState(
@@ -1008,17 +1367,43 @@ fun TryAgainFloatingDock(
                     label = "dockSlidingPill"
                 )
 
-                // Gliding frosted active glass capsule
+                // Gliding liquid-crystal active glass capsule with luminous bottom refraction glow
                 Box(
                     modifier = Modifier
                         .offset(x = pillOffset)
                         .width(tabWidth)
                         .height(50.dp)
+                        .drawBehind {
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        palette.primary.copy(alpha = if (palette.isDark) 0.34f else 0.24f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(size.width / 2f, size.height * 0.72f),
+                                    radius = size.width * 0.78f
+                                ),
+                                radius = size.width * 0.78f,
+                                center = Offset(size.width / 2f, size.height * 0.72f)
+                            )
+                        }
                         .clip(RoundedCornerShape(22.dp))
-                        .background(palette.primarySoft)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    palette.primarySoft,
+                                    palette.prismCyan.copy(alpha = if (palette.isDark) 0.18f else 0.20f)
+                                )
+                            )
+                        )
                         .border(
                             width = 1.dp,
-                            color = palette.primary.copy(alpha = 0.24f),
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = if (palette.isDark) 0.38f else 0.90f),
+                                    palette.primary.copy(alpha = 0.38f)
+                                )
+                            ),
                             shape = RoundedCornerShape(22.dp)
                         )
                 )
@@ -1035,7 +1420,7 @@ fun TryAgainFloatingDock(
                             label = "dockIconTint"
                         )
                         val iconScale by animateFloatAsState(
-                            targetValue = if (isSelected) 1.14f else 0.96f,
+                            targetValue = if (isSelected) 1.13f else 0.96f,
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                 stiffness = Spring.StiffnessMedium
@@ -1062,7 +1447,8 @@ fun TryAgainFloatingDock(
                                     indication = null
                                 ) {
                                     if (!isSelected) {
-                                        tactile?.playTap()
+                                        systemHaptics.tick()
+                                        tactile?.playTabGlide()
                                         onSelectTab(tab)
                                     }
                                 },
@@ -1077,7 +1463,7 @@ fun TryAgainFloatingDock(
                                     contentDescription = tab.label,
                                     tint = tint,
                                     modifier = Modifier
-                                        .size(22.dp)
+                                        .size(21.dp)
                                         .offset(y = iconLift)
                                         .graphicsLayer {
                                             scaleX = iconScale
@@ -1088,9 +1474,12 @@ fun TryAgainFloatingDock(
                                 Text(
                                     text = tab.label,
                                     style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
                                         fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
                                     ),
-                                    color = tint
+                                    color = tint,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }

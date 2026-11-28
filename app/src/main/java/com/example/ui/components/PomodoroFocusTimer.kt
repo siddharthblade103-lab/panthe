@@ -43,10 +43,12 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -72,9 +74,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.model.AmbientSoundPreset
 import com.example.data.model.MascotBadgeId
 import com.example.data.model.PomodoroPhase
 import com.example.data.model.TimerUiState
+import com.example.service.FocusStreakCalculator
 import com.example.ui.theme.LocalTryAgainPalette
 import com.example.ui.theme.TimerMonoFamily
 import java.util.Locale
@@ -128,22 +132,63 @@ class PomodoroTimerController(
     var completedPomodorosInCycle: Int by mutableIntStateOf(0)
         private set
 
+    var sessionStartedDateKey: String by mutableStateOf("")
+        private set
+
+    var pausedAtEpochMs: Long? by mutableStateOf(null)
+        private set
+
+    var totalPausedSeconds: Int by mutableIntStateOf(0)
+        private set
+
+    var pauseCount: Int by mutableIntStateOf(0)
+        private set
+
+    var restoredFromSavedSession: Boolean by mutableStateOf(false)
+        private set
+
     val totalSeconds: Int get() = (plannedMinutes * 60).coerceAtLeast(60)
     val progress: Float get() = ((totalSeconds - remainingSeconds).toFloat() / totalSeconds.toFloat()).coerceIn(0f, 1f)
 
-    fun start() {
+    fun start(
+        nowEpochMs: Long = System.currentTimeMillis(),
+        todayDateKey: String = FocusStreakCalculator.formatDateKey(nowEpochMs)
+    ) {
+        val resumingFromPause = isPaused && remainingSeconds > 0
         if (remainingSeconds <= 0) {
             remainingSeconds = plannedMinutes * 60
             elapsedSeconds = 0
         }
+        if (resumingFromPause) {
+            val pausedAt = pausedAtEpochMs
+            if (pausedAt != null && nowEpochMs > pausedAt) {
+                totalPausedSeconds += ((nowEpochMs - pausedAt) / 1000L).toInt().coerceAtLeast(0)
+            }
+            pausedAtEpochMs = null
+            if (sessionStartedDateKey.isBlank()) {
+                sessionStartedDateKey = todayDateKey
+            }
+        } else if (!isRunning) {
+            if (elapsedSeconds == 0 || sessionStartedDateKey.isBlank()) {
+                sessionStartedDateKey = todayDateKey
+            }
+            pausedAtEpochMs = null
+            if (elapsedSeconds == 0) {
+                totalPausedSeconds = 0
+                pauseCount = 0
+            }
+        }
         isRunning = true
         isPaused = false
+        restoredFromSavedSession = false
     }
 
-    fun pause() {
+    fun pause(nowEpochMs: Long = System.currentTimeMillis()) {
         if (!isRunning) return
         isRunning = false
         isPaused = true
+        pausedAtEpochMs = nowEpochMs
+        pauseCount += 1
     }
 
     fun reset() {
@@ -151,6 +196,29 @@ class PomodoroTimerController(
         isPaused = false
         remainingSeconds = plannedMinutes * 60
         elapsedSeconds = 0
+        sessionStartedDateKey = ""
+        pausedAtEpochMs = null
+        totalPausedSeconds = 0
+        pauseCount = 0
+        restoredFromSavedSession = false
+    }
+
+    fun restoreFromReconciled(reconciled: FocusStreakCalculator.ReconciledTimerState) {
+        phase = reconciled.phase
+        focusMinutes = reconciled.focusMinutesSetting
+        shortBreakMinutes = reconciled.shortBreakMinutesSetting
+        longBreakMinutes = reconciled.longBreakMinutesSetting
+        plannedMinutes = reconciled.plannedMinutes
+        remainingSeconds = reconciled.remainingSeconds
+        elapsedSeconds = reconciled.elapsedSeconds
+        isRunning = reconciled.isRunning
+        isPaused = reconciled.isPaused
+        completedPomodorosInCycle = reconciled.completedPomodorosInCycle
+        sessionStartedDateKey = reconciled.sessionStartedDateKey
+        pausedAtEpochMs = reconciled.pausedAtEpochMs
+        totalPausedSeconds = reconciled.totalPausedSeconds
+        pauseCount = reconciled.pauseCount
+        restoredFromSavedSession = reconciled.restoredFromSavedSession
     }
 
     fun setDurationMinutes(minutes: Int) {
@@ -165,6 +233,11 @@ class PomodoroTimerController(
         remainingSeconds = clamped * 60
         elapsedSeconds = 0
         isPaused = false
+        sessionStartedDateKey = ""
+        pausedAtEpochMs = null
+        totalPausedSeconds = 0
+        pauseCount = 0
+        restoredFromSavedSession = false
     }
 
     fun adjustDurationMinutes(deltaMinutes: Int) {
@@ -183,13 +256,21 @@ class PomodoroTimerController(
         remainingSeconds = minutes * 60
         elapsedSeconds = 0
         isPaused = false
+        sessionStartedDateKey = ""
+        pausedAtEpochMs = null
+        totalPausedSeconds = 0
+        pauseCount = 0
+        restoredFromSavedSession = false
     }
 
-    fun tickOneSecond(): Pair<PomodoroPhase, Int>? {
-        if (!isRunning) return null
-        val nextRemaining = (remainingSeconds - 1).coerceAtLeast(0)
+    fun tickOneSecond(): Pair<PomodoroPhase, Int>? = advanceBySeconds(1)
+
+    fun advanceBySeconds(seconds: Int): Pair<PomodoroPhase, Int>? {
+        if (!isRunning || seconds <= 0) return null
+        val applied = seconds.coerceAtMost(remainingSeconds.coerceAtLeast(0))
+        val nextRemaining = (remainingSeconds - applied).coerceAtLeast(0)
         remainingSeconds = nextRemaining
-        elapsedSeconds += 1
+        elapsedSeconds += applied
         return if (nextRemaining == 0) {
             completeCurrentPhase(autoFinished = true)
         } else {
@@ -230,6 +311,11 @@ class PomodoroTimerController(
         plannedMinutes = nextMinutes
         remainingSeconds = nextMinutes * 60
         elapsedSeconds = 0
+        sessionStartedDateKey = ""
+        pausedAtEpochMs = null
+        totalPausedSeconds = 0
+        pauseCount = 0
+        restoredFromSavedSession = false
         return finishedPhase to completedMinutes
     }
 }
@@ -247,6 +333,11 @@ fun TryAgainFocusRingCard(
     timerState: TimerUiState,
     equippedBadge: MascotBadgeId,
     activeTaskTitle: String?,
+    activeAmbient: AmbientSoundPreset = AmbientSoundPreset.OFF,
+    isAmbientPlaying: Boolean = false,
+    ambientWaveAmplitude: Float = 0f,
+    gemMultiplierPercent: Int = 100,
+    showAmbientDrawerTrigger: Boolean = true,
     onSelectPhase: (PomodoroPhase) -> Unit,
     onSetDuration: (Int) -> Unit,
     onAdjustDuration: (Int) -> Unit,
@@ -254,10 +345,13 @@ fun TryAgainFocusRingCard(
     onPause: () -> Unit,
     onReset: () -> Unit,
     onCompleteOrSkip: () -> Unit,
+    onOpenAmbientDrawer: () -> Unit = {},
+    onQuickToggleAmbient: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val palette = LocalTryAgainPalette.current
     val tactile = LocalTactileSound.current
+    val systemHaptics = LocalSystemHaptics.current
 
     val animatedProgress by animateFloatAsState(
         targetValue = timerState.progress,
@@ -301,6 +395,7 @@ fun TryAgainFocusRingCard(
     )
 
     val ringColors = when {
+        timerState.isPaused -> listOf(palette.streakColor, palette.primary)
         timerState.phase != PomodoroPhase.FOCUS -> listOf(palette.gemColor, Color(0xFF5EEAD4))
         equippedBadge == MascotBadgeId.SCHOLAR_OWL -> listOf(Color(0xFF1CB0F6), Color(0xFF6366F1))
         equippedBadge == MascotBadgeId.ROYAL_CROWN -> listOf(Color(0xFFFFB020), Color(0xFFFF7A00))
@@ -308,16 +403,18 @@ fun TryAgainFocusRingCard(
         else -> listOf(palette.primary, Color(0xFF89E219))
     }
 
-    val potentialGems = if (timerState.phase == PomodoroPhase.FOCUS) {
+    val baseGems = if (timerState.phase == PomodoroPhase.FOCUS) {
         (timerState.plannedMinutes * 2) + 15
     } else 0
+    val safeMult = gemMultiplierPercent.coerceIn(100, 300)
+    val potentialGems = ((baseGems * safeMult) / 100)
 
     MorphismSurface(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = 32.dp,
         elevated = true,
         accentTint = ringColors.first(),
-        shimmer = timerState.isRunning,
+        shimmer = timerState.isRunning || timerState.isPaused,
         frostedBlur = true,
         blurRadius = 24.dp,
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp)
@@ -326,12 +423,12 @@ fun TryAgainFocusRingCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Fluid Sliding Glass Phase Switcher
+            // Fluid Sliding Glass Phase Switcher (locked while running or paused to prevent accidental session wipe)
             SlidingGlassSegmentedBar(
                 labels = PomodoroPhase.entries.map { it.displayName },
                 selectedIndex = PomodoroPhase.entries.indexOf(timerState.phase),
                 onSelect = { idx -> onSelectPhase(PomodoroPhase.entries[idx]) },
-                enabled = !timerState.isRunning,
+                enabled = !timerState.isRunning && !timerState.isPaused,
                 tagPrefix = "phase"
             )
 
@@ -413,12 +510,14 @@ fun TryAgainFocusRingCard(
                                 )
                             )
                             .border(
-                                width = 1.4.dp,
+                                width = 1.5.dp,
                                 brush = Brush.linearGradient(
                                     colors = listOf(
-                                        Color.White.copy(alpha = if (palette.isDark) 0.48f else 0.95f),
-                                        ringColors.first().copy(alpha = if (palette.isDark) 0.28f else 0.22f),
-                                        Color.White.copy(alpha = if (palette.isDark) 0.14f else 0.50f)
+                                        Color.White.copy(alpha = if (palette.isDark) 0.54f else 0.96f),
+                                        palette.prismCyan.copy(alpha = if (palette.isDark) 0.36f else 0.42f),
+                                        ringColors.first().copy(alpha = if (palette.isDark) 0.30f else 0.24f),
+                                        palette.prismViolet.copy(alpha = if (palette.isDark) 0.26f else 0.30f),
+                                        Color.White.copy(alpha = if (palette.isDark) 0.18f else 0.58f)
                                     )
                                 ),
                                 shape = CircleShape
@@ -570,13 +669,17 @@ fun TryAgainFocusRingCard(
                 // Layer 3: Crisp Floating Minimal Digital Timer Readout over Frosted Glass Lens
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = timerState.phase.displayName.uppercase(Locale.US),
+                        text = if (timerState.isPaused) {
+                            "PAUSED"
+                        } else {
+                            timerState.phase.displayName.uppercase(Locale.US)
+                        },
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 1.4.sp,
                             fontSize = 10.sp
                         ),
-                        color = palette.textMuted
+                        color = if (timerState.isPaused) palette.streakColor else palette.textMuted
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -638,7 +741,7 @@ fun TryAgainFocusRingCard(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "+$potentialGems Gems",
+                                    text = if (safeMult > 100) "+$potentialGems Gems (${safeMult / 100f}x)" else "+$potentialGems Gems",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = palette.gemColor
                                 )
@@ -665,6 +768,51 @@ fun TryAgainFocusRingCard(
                                     .background(if (filled) palette.primary else palette.glassBorderSubtle)
                             )
                         }
+                    }
+                }
+            }
+
+            // Liquid-Glass Paused Streak-Protection Pill
+            AnimatedVisibility(
+                visible = timerState.isPaused,
+                enter = fadeIn(tween(220)) + expandVertically(),
+                exit = fadeOut(tween(180)) + shrinkVertically()
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .padding(top = 12.dp)
+                        .testTag("timer_paused_streak_badge"),
+                    shape = RoundedCornerShape(50),
+                    color = palette.streakColor.copy(alpha = if (palette.isDark) 0.18f else 0.12f),
+                    border = BorderStroke(
+                        1.dp,
+                        palette.streakColor.copy(alpha = if (palette.isDark) 0.45f else 0.35f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.VerifiedUser,
+                            contentDescription = "Streak protected while paused",
+                            tint = palette.streakColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        val elapsedLabel = if (timerState.elapsedSeconds >= 60) {
+                            "${formatClock(timerState.elapsedSeconds)} saved"
+                        } else {
+                            "Progress saved"
+                        }
+                        Text(
+                            text = "${stringResource(R.string.focus_paused_badge)} · $elapsedLabel",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.4.sp
+                            ),
+                            color = palette.streakLip
+                        )
                     }
                 }
             }
@@ -706,10 +854,12 @@ fun TryAgainFocusRingCard(
                     ) {
                         Surface(
                             modifier = Modifier
-                                .size(38.dp)
+                                .minimumInteractiveComponentSize()
+                                .size(40.dp)
                                 .testTag("duration_minus")
                                 .clip(CircleShape)
                                 .clickable {
+                                    systemHaptics.tick()
                                     tactile?.playTap()
                                     onAdjustDuration(-5)
                                 },
@@ -743,10 +893,12 @@ fun TryAgainFocusRingCard(
 
                         Surface(
                             modifier = Modifier
-                                .size(38.dp)
+                                .minimumInteractiveComponentSize()
+                                .size(40.dp)
                                 .testTag("duration_plus")
                                 .clip(CircleShape)
                                 .clickable {
+                                    systemHaptics.tick()
                                     tactile?.playTap()
                                     onAdjustDuration(5)
                                 },
@@ -785,6 +937,7 @@ fun TryAgainFocusRingCard(
                         onClick = onStartOrResume,
                         containerColor = if (timerState.phase == PomodoroPhase.FOCUS) palette.primary else palette.gemColor,
                         lipColor = if (timerState.phase == PomodoroPhase.FOCUS) palette.primaryLip else palette.gemLip,
+                        hapticEvent = SystemHapticEvent.SESSION_START,
                         testTag = "timer_start_button"
                     )
                 } else {
@@ -803,6 +956,7 @@ fun TryAgainFocusRingCard(
                             onClick = if (timerState.isRunning) onPause else onStartOrResume,
                             containerColor = if (timerState.isRunning) palette.streakColor else palette.primary,
                             lipColor = if (timerState.isRunning) palette.streakLip else palette.primaryLip,
+                            hapticEvent = if (timerState.isRunning) SystemHapticEvent.SESSION_PAUSE else SystemHapticEvent.SESSION_START,
                             modifier = Modifier.weight(1.25f),
                             testTag = "timer_pause_resume_button"
                         )
@@ -817,6 +971,7 @@ fun TryAgainFocusRingCard(
                             onClick = onCompleteOrSkip,
                             containerColor = palette.gemColor,
                             lipColor = palette.gemLip,
+                            hapticEvent = SystemHapticEvent.SESSION_COMPLETE,
                             modifier = Modifier.weight(1f),
                             testTag = "timer_complete_button"
                         )
@@ -827,6 +982,7 @@ fun TryAgainFocusRingCard(
                                 .testTag("timer_reset_button")
                                 .clip(RoundedCornerShape(18.dp))
                                 .clickable {
+                                    systemHaptics.sessionStop()
                                     tactile?.playTap()
                                     onReset()
                                 },
@@ -845,6 +1001,19 @@ fun TryAgainFocusRingCard(
                         }
                     }
                 }
+            }
+
+            if (showAmbientDrawerTrigger) {
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 1-Tap Ambient Soundscape Selection Drawer Trigger (always accessible during focus sessions)
+                AmbientSoundDrawerTriggerBar(
+                    activeAmbient = activeAmbient,
+                    isPlaying = isAmbientPlaying,
+                    waveAmplitude = ambientWaveAmplitude,
+                    onOpenDrawer = onOpenAmbientDrawer,
+                    onQuickPlayPause = onQuickToggleAmbient
+                )
             }
         }
     }
